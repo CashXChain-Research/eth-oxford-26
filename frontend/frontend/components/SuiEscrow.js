@@ -5,14 +5,9 @@ import WalletConnector from "./WalletConnector";
 // Optional: Sui SDK — fallback to null if not installed
 let TransactionBlock = null;
 let JsonRpcProvider = null;
-try {
-  const suiModule = require("@mysten/sui");
-  if (suiModule && suiModule.TransactionBlock) {
-    TransactionBlock = suiModule.TransactionBlock;
-  }
-} catch (e) {
-  // @mysten/sui not available, using fallback
-}
+// Do not require the Sui SDK at build-time; if present at runtime a wallet
+// will provide the necessary transaction helpers. Keep TransactionBlock null
+// so we fall back to simulated flows when the SDK isn't installed.
 
 export default function SuiEscrow({ onChainEvent }) {
   const [payer, setPayer] = useState("");
@@ -51,8 +46,8 @@ export default function SuiEscrow({ onChainEvent }) {
     if (!escrowState) return addLog("No escrow exists.");
     if (escrowState.funded) return addLog("Escrow is already funded.");
 
-    // Try on-chain via wallet when available
-    if (wallet && wallet.signAndExecuteTransactionBlock) {
+    // Try on-chain via wallet when available and SDK helpers present
+    if (wallet && wallet.signAndExecuteTransactionBlock && TransactionBlock) {
       try {
         addLog('Sending on-chain fund transaction...');
         const tx = new TransactionBlock();
@@ -79,7 +74,7 @@ export default function SuiEscrow({ onChainEvent }) {
     if (!escrowState) return addLog("No escrow exists.");
     if (!escrowState.funded) return addLog("Escrow is not funded.");
 
-    if (wallet && wallet.signAndExecuteTransactionBlock) {
+    if (wallet && wallet.signAndExecuteTransactionBlock && TransactionBlock) {
       try {
         addLog('Sending on-chain release transaction...');
         const tx = new TransactionBlock();

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import Link from 'next/link';
 import QuantumRNG from "../components/QuantumRNG";
 import AIAgents from "../components/AIAgents";
 import SuiEscrow from "../components/SuiEscrow";
@@ -20,9 +21,16 @@ export default function Page() {
       }}
     >
       <div style={{ width: 820, maxWidth: "95%", position: "relative" }}>
-        <div style={{ textAlign: "center", marginBottom: 12, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>
-          <h1 style={{ margin: 0 }}>Welcome to Our Demo Project!</h1>
-          <p style={{ margin: 6 }}>Quantum RNG, AI Agents, and Sui Escrow – Demo</p>
+        <div style={{ textAlign: "center", marginBottom: 12, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.6)", display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{ margin: 0 }}>Welcome to Our Demo Project!</h1>
+            <p style={{ margin: 6 }}>Quantum RNG, AI Agents, and Sui Escrow – Demo</p>
+          </div>
+          <div style={{ marginLeft: 12 }}>
+            <Link href="/faq" style={{ padding: '8px 12px', borderRadius: 8, background: '#fff', color: '#111', textDecoration: 'none', display: 'inline-block' }}>
+              FAQ
+            </Link>
+          </div>
         </div>
 
         {/* semi-transparent overlay positioned to look like it's on the laptop screen */}
