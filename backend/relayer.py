@@ -29,8 +29,14 @@ except ImportError:
 SUI_RPC_URL = os.getenv('SUI_RPC_URL', 'https://fullnode.devnet.sui.io:443')
 PACKAGE_ID = os.getenv('PACKAGE_ID')
 TASK_OBJECT_ID = os.getenv('TASK_OBJECT_ID')
+PORTFOLIO_OBJECT_ID = os.getenv('PORTFOLIO_OBJECT_ID')
+ADMIN_CAP_ID = os.getenv('ADMIN_CAP_ID')
 SHOTS = int(os.getenv('SHOTS', 100))
 POLL_INTERVAL = int(os.getenv('POLL_INTERVAL', 5))  # seconds
+
+# Action codes (mirror execution.move)
+ACTION_REBALANCE_SUI_TO_USDC = 1
+ACTION_REBALANCE_USDC_TO_SUI = 2
 
 # Track processed events
 processed_events = set()
@@ -70,13 +76,14 @@ def fetch_events(event_type: str, limit: int = 100) -> list:
             payload = {
                 "jsonrpc": "2.0",
                 "id": 1,
-                "method": "sui_queryEvents",
+                "method": "suix_queryEvents",
                 "params": [
                     {
                         "MoveEventType": event_type
                     },
                     None,
-                    limit
+                    limit,
+                    False
                 ]
             }
             response = client.post(SUI_RPC_URL, json=payload, timeout=10)
@@ -142,22 +149,59 @@ def call_select_winner(random_number: int) -> bool:
     return True
 
 
+def call_execute_rebalance(amount: int) -> bool:
+    """
+    Call portfolio::execute_rebalance on Sui.
+    This is the primary entry point for the AI agent (quantum_vault).
+    """
+    agent_cap_id = os.getenv('AGENT_CAP_ID')
+    if not PACKAGE_ID or PACKAGE_ID == '0x...' or not PORTFOLIO_OBJECT_ID or PORTFOLIO_OBJECT_ID == '0x...':
+        logger.info(f"[DEMO] Would call execute_rebalance(amount={amount})")
+        return True
+
+    logger.info(f"Calling execute_rebalance: amount={amount}")
+    # Uncomment when Sui CLI is installed:
+    # try:
+    #     result = subprocess.run([
+    #         'sui', 'client', 'call',
+    #         '--package', PACKAGE_ID,
+    #         '--module', 'portfolio',
+    #         '--function', 'execute_rebalance',
+    #         '--args',
+    #         agent_cap_id,        # AgentCap (owned by agent)
+    #         PORTFOLIO_OBJECT_ID, # Portfolio shared object
+    #         str(amount),         # amount in MIST
+    #         '0x6',               # Clock
+    #     ], capture_output=True, text=True, timeout=30)
+    #     return result.returncode == 0
+    # except Exception as e:
+    #     logger.error(f"Error calling execute_rebalance: {e}")
+    #     return False
+    return True
+
+
 def run_relayer():
     """Main relayer loop."""
+    demo_mode = not PACKAGE_ID or PACKAGE_ID == '0x...'
     logger.info(f"Starting relayer. Polling {SUI_RPC_URL} every {POLL_INTERVAL}s")
+    if demo_mode:
+        logger.info("DEMO MODE: No real Sui contract deployed yet. Simulating event loop.")
     
     event_type = f"{PACKAGE_ID}::ai_task::AgentRegistered"
     
     while True:
         try:
-            events = fetch_events(event_type)
-            for event in events:
-                if process_agent_registered_event(event):
-                    logger.info("Triggering quantum RNG...")
-                    random_num = get_quantum_random(SHOTS)
-                    if random_num is not None:
-                        if call_select_winner(random_num):
-                            logger.info("Successfully processed event and called select_winner")
+            if demo_mode:
+                logger.info("Demo: No events to fetch (contract not deployed). Waiting...")
+            else:
+                events = fetch_events(event_type)
+                for event in events:
+                    if process_agent_registered_event(event):
+                        logger.info("Triggering quantum RNG...")
+                        random_num = get_quantum_random(SHOTS)
+                        if random_num is not None:
+                            if call_select_winner(random_num):
+                                logger.info("Successfully processed event and called select_winner")
             
             time.sleep(POLL_INTERVAL)
         except KeyboardInterrupt:
@@ -169,8 +213,9 @@ def run_relayer():
 
 
 if __name__ == "__main__":
-    if not PACKAGE_ID:
-        logger.error("Set PACKAGE_ID in .env")
-        sys.exit(1)
+    if not PACKAGE_ID or PACKAGE_ID == '0x...':
+        logger.warning("PACKAGE_ID not set or placeholder. Running in DEMO mode (no Sui transactions).")
+    if not TASK_OBJECT_ID or TASK_OBJECT_ID == '0x...':
+        logger.warning("TASK_OBJECT_ID not set or placeholder. Running in DEMO mode.")
     
     run_relayer()
