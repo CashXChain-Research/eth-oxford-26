@@ -44,6 +44,7 @@ Johann: Click the red "Generate" button in the Quantum RNG section; it shows a d
       const fullPrompt = "AgentName: Johann" + "\n" +
         "Persona: " + JOHANN_PERSONA + "\n" +
         "Distinctness: Do NOT imitate or copy other site agents (e.g. Tom). Use a friendly, informal tone and respond in 1-3 short sentences. Return only the assistant text (no 'Johann:' prefix)." +
+        "\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata." +
         "\n\nSiteContext: " + SITE_SUMMARY + "\n\nExamples:\n" + JOHANN_EXAMPLES + "\nUser: " + text +
         "\n\nInstruction: Answer succinctly. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site (see examples). If unsure, ask for clarification instead of echoing internal site text.";
       // Use a moderate temperature for Johann and prefer UI guidance over code
@@ -67,15 +68,34 @@ Johann: Click the red "Generate" button in the Quantum RNG section; it shows a d
       }
       let data = null;
       try { data = JSON.parse(txt); } catch (e) { data = txt; }
-      // Robust extraction of reply from various response shapes
-      let reply = '';
-      if (typeof data === 'string') reply = data;
-      else if (data && typeof data === 'object') {
-        reply = data.reply || data.response || data.text || (data.result && data.result.response) || '';
-        if (!reply) {
-          try { reply = JSON.stringify(data); } catch (e) { reply = '' }
+
+      // Helper: extract reply from many possible response shapes (OpenAI-style, plain text, custom)
+      function extractReply(obj, raw) {
+        if (typeof obj === 'string') return obj;
+        if (!obj) return '';
+        // OpenAI-like choices
+        if (Array.isArray(obj.choices) && obj.choices.length) {
+          const c = obj.choices[0];
+          if (c.message && typeof c.message.content === 'string') return c.message.content;
+          if (typeof c.text === 'string') return c.text;
         }
+        // common top-level fields
+        const candidates = ['reply','response','text','output'];
+        for (const k of candidates) {
+          if (typeof obj[k] === 'string' && obj[k].trim()) return obj[k];
+        }
+        // nested shapes
+        if (obj.result && typeof obj.result === 'object') {
+          if (typeof obj.result.response === 'string') return obj.result.response;
+          if (typeof obj.result.output === 'string') return obj.result.output;
+        }
+        if (obj.message && typeof obj.message === 'object' && typeof obj.message.content === 'string') return obj.message.content;
+        // fallback to raw text
+        if (typeof raw === 'string' && raw.trim()) return raw;
+        try { return JSON.stringify(obj); } catch (e) { return ''; }
       }
+
+      let reply = extractReply(data, txt);
       // sanitize and normalize
       if (typeof reply === 'string') {
         reply = reply.trim();
@@ -98,7 +118,14 @@ Johann: Click the red "Generate" button in the Quantum RNG section; it shows a d
         if (!reply || reply.length < 6) reply = 'I can help with that — could you rephrase your question?';
       }
       if (!reply) reply = 'I got your message.';
-      setMessages((m) => [...m, { from: 'Johann', text: reply }]);
+      setMessages((m) => {
+        // avoid appending identical consecutive Johann replies
+        const lastJohann = [...m].reverse().find((x) => x.from === 'Johann');
+        if (lastJohann && lastJohann.text === reply) {
+          return [...m, { from: 'Johann', text: 'I already mentioned that — would you like more detail?' }];
+        }
+        return [...m, { from: 'Johann', text: reply }];
+      });
     } catch (e) {
       console.warn('Johann AI request failed', e);
       setError('Sorry, I cannot reach the AI right now.');

@@ -59,7 +59,7 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
       setLoadingTom(true);
       try {
         const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
-        const fullPrompt = `${TOM_PERSONA_EXPLICIT}\n\nSiteContext: ${SITE_SUMMARY}\n\n${TOM_EXAMPLES}\nUser: ${userMsg.text}\n\nInstruction: Answer concisely. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site. Examples of explicit asks (English/German): 'who made this site', 'who created this site', 'wer hat diese Seite gemacht', 'wer hat die seite erstellt'. When those explicit phrases are used, respond with the credit string exactly: 'This site was created by CashXChain Research (Special Thanks to Dosentelefoni).' Otherwise do not reveal authorship.`;
+        const fullPrompt = `${TOM_PERSONA_EXPLICIT}\n\nSiteContext: ${SITE_SUMMARY}\n\n${TOM_EXAMPLES}\nUser: ${userMsg.text}\n\nInstruction: Answer concisely. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site. Examples of explicit asks (English/German): 'who made this site', 'who created this site', 'wer hat diese Seite gemacht', 'wer hat die seite erstellt'. When those explicit phrases are used, respond with the credit string exactly: 'This site was created by CashXChain Research (Special Thanks to Dosentelefoni).' Otherwise do not reveal authorship.\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata.`;
         // Use a very low temperature for Tom to favour deterministic, technical replies
         const body = { prompt: fullPrompt, recipient: "Tom", context: SITE_SUMMARY, temperature: 0.02, max_tokens: 400 };
         // retry logic
@@ -76,12 +76,27 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
           }
         }
         let data; try { data = JSON.parse(txt); } catch (e) { data = txt; }
-        let reply = '';
-        if (typeof data === 'string') reply = data;
-        else if (data && typeof data === 'object') {
-          reply = data.reply || data.response || data.text || (data.result && data.result.response) || '';
-          if (!reply) { try { reply = JSON.stringify(data); } catch (e) { reply = ''; } }
+
+        function extractReply(obj, raw) {
+          if (typeof obj === 'string') return obj;
+          if (!obj) return '';
+          if (Array.isArray(obj.choices) && obj.choices.length) {
+            const c = obj.choices[0];
+            if (c.message && typeof c.message.content === 'string') return c.message.content;
+            if (typeof c.text === 'string') return c.text;
+          }
+          const candidates = ['reply','response','text','output'];
+          for (const k of candidates) if (typeof obj[k] === 'string' && obj[k].trim()) return obj[k];
+          if (obj.result && typeof obj.result === 'object') {
+            if (typeof obj.result.response === 'string') return obj.result.response;
+            if (typeof obj.result.output === 'string') return obj.result.output;
+          }
+          if (obj.message && typeof obj.message === 'object' && typeof obj.message.content === 'string') return obj.message.content;
+          if (typeof raw === 'string' && raw.trim()) return raw;
+          try { return JSON.stringify(obj); } catch (e) { return ''; }
         }
+
+        let reply = extractReply(data, txt);
         if (typeof reply === 'string') { reply = reply.trim().replace(/^Tom:\s*/i, ''); if (reply.length > 2000) reply = reply.slice(0,2000) + '...'; }
         // If AI echoed the site summary or credit when not asked, strip it
         if (!authorshipPattern.test(userMsg.text)) {
@@ -98,8 +113,14 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
 
     replyFromAI()
       .then((r) => {
-        if (r && r.toString().trim().length > 0) setMessages((m) => [...m, { from: "Tom", text: r.toString() }] );
-        else setMessages((m) => [...m, { from: "Tom", text: "Thanks, I'll look into that." }]);
+        const replyText = (r && r.toString().trim().length > 0) ? r.toString() : "Thanks, I'll look into that.";
+        setMessages((m) => {
+          const lastTom = [...m].reverse().find((x) => x.from === 'Tom');
+          if (lastTom && lastTom.text === replyText) {
+            return [...m, { from: 'Tom', text: "I already mentioned that — do you want more details?" }];
+          }
+          return [...m, { from: 'Tom', text: replyText }];
+        });
       })
       .catch(() => {
         setTimeout(() => {
@@ -186,7 +207,7 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
       // Ask Tom to comment briefly on the event
       (async () => {
         try {
-          const prompt = `AgentName: Tom\nPersona: ${TOM_PERSONA_EXPLICIT}\nDistinctness: Do NOT imitate or copy other site agents (e.g. Johann). Provide a brief, technical comment in 1-2 sentences. Return only the assistant text without leading 'Tom:'.\n\nSiteContext: ${SITE_SUMMARY}\n\nOn-chain event: ${summary}\n\nInstruction: Only reveal site authorship when explicitly asked.`;
+          const prompt = `AgentName: Tom\nPersona: ${TOM_PERSONA_EXPLICIT}\nDistinctness: Do NOT imitate or copy other site agents (e.g. Johann). Provide a brief, technical comment in 1-2 sentences. Return only the assistant text without leading 'Tom:'.\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata.\n\nSiteContext: ${SITE_SUMMARY}\n\nOn-chain event: ${summary}\n\nInstruction: Only reveal site authorship when explicitly asked.`;
           const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
           const body = { prompt, recipient: 'Tom', context: SITE_SUMMARY };
           const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -194,19 +215,37 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
           const txt = await resp.text();
           let data;
           try { data = JSON.parse(txt); } catch(e) { data = txt; }
-          let reply = '';
-          if (typeof data === 'string') reply = data;
-          else if (data && typeof data === 'object') {
-            reply = data.reply || data.response || data.text || (data.result && data.result.response) || '';
-            if (!reply) {
-              try { reply = JSON.stringify(data); } catch (e) { reply = ''; }
+          function extractReply(obj, raw) {
+            if (typeof obj === 'string') return obj;
+            if (!obj) return '';
+            if (Array.isArray(obj.choices) && obj.choices.length) {
+              const c = obj.choices[0];
+              if (c.message && typeof c.message.content === 'string') return c.message.content;
+              if (typeof c.text === 'string') return c.text;
             }
+            const candidates = ['reply','response','text','output'];
+            for (const k of candidates) if (typeof obj[k] === 'string' && obj[k].trim()) return obj[k];
+            if (obj.result && typeof obj.result === 'object') {
+              if (typeof obj.result.response === 'string') return obj.result.response;
+              if (typeof obj.result.output === 'string') return obj.result.output;
+            }
+            if (obj.message && typeof obj.message === 'object' && typeof obj.message.content === 'string') return obj.message.content;
+            if (typeof raw === 'string' && raw.trim()) return raw;
+            try { return JSON.stringify(obj); } catch (e) { return ''; }
           }
+          let reply = extractReply(data, txt);
           if (typeof reply === 'string') {
             reply = reply.trim().replace(/^Tom:\s*/i, '');
             if (reply.length > 500) reply = reply.slice(0,500) + '...';
           }
-          setMessages((m) => [...m, { from: 'Tom', text: reply || 'Tom: Event recorded.' }]);
+          setMessages((m) => {
+            const replyText = reply || 'Tom: Event recorded.';
+            const lastTom = [...m].reverse().find((x) => x.from === 'Tom');
+            if (lastTom && lastTom.text === replyText) {
+              return [...m, { from: 'Tom', text: 'I already noted that event.' }];
+            }
+            return [...m, { from: 'Tom', text: replyText }];
+          });
         } catch (e) {
           setMessages((m) => [...m, { from: 'Tom', text: 'Tom: I received the event and noted it.' }]);
         }
