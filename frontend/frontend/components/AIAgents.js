@@ -7,10 +7,10 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
   ]);
   // include the same site summary/credit so Tom has context about the demo
   const SITE_SUMMARY = `This demo site contains three main parts: (1) Quantum RNG UI demonstrating a random number generator component; (2) AI Agents demo where Tom responds to user messages and on-chain event comments; (3) a Sui Escrow demo that simulates (or uses a connected wallet for) simple escrow flows. The demo uses a public AI endpoint for agent replies. This site is created by the CashXChain Research department (Special Thanks to Dosentelefoni).`;
-  const TOM_PERSONA = `You are Tom, a helpful assistant focused on technical clarity and short, actionable answers. Use examples and refer to site features when useful.`;
+  const TOM_PERSONA = `You are Tom, a technically-focused assistant. Give concise, step-by-step troubleshooting and references to UI elements. Keep tone professional and use precise terminology.`;
   const TOM_EXAMPLES = `Example:\nUser: How do I fund an escrow?\nTom: Use the Sui Escrow UI to create an escrow and then click Fund; if no wallet is connected it simulates funding.`;
   // Make Tom's persona explicitly technical and distinct from Johann
-  const TOM_PERSONA_EXPLICIT = `You are Tom, a technically-focused assistant. Provide concise, step-by-step troubleshooting and references to UI elements. Keep tone professional.`;
+  const TOM_PERSONA_EXPLICIT = `You are Tom, a technically-focused assistant. Provide concise, step-by-step troubleshooting and references to UI elements. Keep tone professional and distinct from other site agents.`;
 
   // Do NOT auto-insert the credit message for Tom; the SITE_SUMMARY is included
   // in prompts but Tom should reveal authorship only when explicitly asked.
@@ -60,7 +60,8 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
       try {
         const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
         const fullPrompt = `${TOM_PERSONA_EXPLICIT}\n\nSiteContext: ${SITE_SUMMARY}\n\n${TOM_EXAMPLES}\nUser: ${userMsg.text}\n\nInstruction: Answer concisely. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site. Examples of explicit asks (English/German): 'who made this site', 'who created this site', 'wer hat diese Seite gemacht', 'wer hat die seite erstellt'. When those explicit phrases are used, respond with the credit string exactly: 'This site was created by CashXChain Research (Special Thanks to Dosentelefoni).' Otherwise do not reveal authorship.`;
-        const body = { prompt: fullPrompt, recipient: "Tom", context: SITE_SUMMARY, temperature: 0.2, max_tokens: 500 };
+        // Use a very low temperature for Tom to favour deterministic, technical replies
+        const body = { prompt: fullPrompt, recipient: "Tom", context: SITE_SUMMARY, temperature: 0.02, max_tokens: 400 };
         // retry logic
         let resp = null; let txt = '';
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -87,7 +88,7 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
           if (typeof reply === 'string' && (reply.includes('This demo site contains') || reply.includes('CashXChain Research') || reply.includes('Dosentelefoni'))) {
             reply = reply.replace(/This demo site contains[\s\S]*/i, '').replace(/CashXChain Research\s*\(?Special Thanks to Dosentelefoni\)?/i, '').trim();
           }
-          if (!reply || reply.length < 6) reply = "Tom: Could you rephrase that? I'm not sure I understood.";
+          if (!reply || reply.length < 6) reply = "Could you rephrase that? I'm not sure I understood.";
         }
         return reply;
       } finally {
@@ -98,11 +99,11 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
     replyFromAI()
       .then((r) => {
         if (r && r.toString().trim().length > 0) setMessages((m) => [...m, { from: "Tom", text: r.toString() }] );
-        else setMessages((m) => [...m, { from: "Tom", text: "Tom: Thanks, I'll look into that." }]);
+        else setMessages((m) => [...m, { from: "Tom", text: "Thanks, I'll look into that." }]);
       })
       .catch(() => {
         setTimeout(() => {
-          setMessages((m) => [...m, { from: "Tom", text: "Tom: Thanks, I'll look into that." }]);
+          setMessages((m) => [...m, { from: "Tom", text: "Thanks, I'll look into that." }]);
         }, 600);
       });
   }
@@ -114,10 +115,8 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
   useEffect(() => {
     setMessages((m) => {
       const hasTomReminder = m.some((x) => x.from === 'Tom' && /Tom/i.test(x.text));
-      const hasJohannReminder = m.some((x) => x.from === 'Johann' && /Johann/i.test(x.text));
       const additions = [];
       if (!hasTomReminder) additions.push({ from: 'Tom', text: 'Reminder: My name is Tom.' });
-      if (!hasJohannReminder) additions.push({ from: 'Johann', text: 'Reminder: My name is Johann.' });
       return additions.length ? [...m, ...additions] : m;
     });
     // run only on mount
@@ -187,7 +186,7 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
       // Ask Tom to comment briefly on the event
       (async () => {
         try {
-          const prompt = `${SITE_SUMMARY}\n\nYou are Tom, provide a brief comment on the following on-chain event: ${summary} Please in 1-2 sentences. Only reveal the site's authorship or credit information (CashXChain Research, Dosentelefoni) if the user explicitly asks who created or maintained the site.`;
+          const prompt = `AgentName: Tom\nPersona: ${TOM_PERSONA_EXPLICIT}\nDistinctness: Do NOT imitate or copy other site agents (e.g. Johann). Provide a brief, technical comment in 1-2 sentences. Return only the assistant text without leading 'Tom:'.\n\nSiteContext: ${SITE_SUMMARY}\n\nOn-chain event: ${summary}\n\nInstruction: Only reveal site authorship when explicitly asked.`;
           const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
           const body = { prompt, recipient: 'Tom', context: SITE_SUMMARY };
           const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

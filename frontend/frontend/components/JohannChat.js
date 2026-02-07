@@ -11,15 +11,10 @@ export default function JohannChat() {
   const containerRef = useRef(null);
   // Brief site summary to include with every AI request so Johann can answer
   const SITE_SUMMARY = `This demo site contains three main parts: (1) Quantum RNG UI demonstrating a random number generator component; (2) AI Agents demo where Tom responds to user messages and on-chain event comments; (3) a Sui Escrow demo that simulates (or uses a connected wallet for) simple escrow flows. The demo uses a public AI endpoint for agent replies. This site is created by the CashXChain Research department (Special Thanks to Dosentelefoni).`;
-  const JOHANN_PERSONA = `You are Johann, a concise and helpful assistant for the demo site. Be polite, factual, and give short answers (1-3 sentences) unless asked to elaborate.`;
+  const JOHANN_PERSONA = `You are Johann, a friendly, informal assistant for demo users. Speak briefly (1-3 sentences), use plain language, include an example or quick action when helpful, and avoid technical jargon.`;
   const JOHANN_EXAMPLES = `Example:
 User: How do I generate a random number?
 Johann: Click the red "Generate" button in the Quantum RNG section; it shows a demo random number you can copy.`;
-  const JOHANN_PERSONA = `You are Johann, a friendly, informal assistant for demo users. Speak briefly, use plain language, and include actionable steps when helpful. Avoid technical jargon.`;
-  const JOHANN_EXAMPLES = `Example:
-User: How do I generate a random number?
-Johann: Click the red Generate button in the Quantum RNG area — it'll show a demo number you can copy.`;
-`;
 
   // Do NOT auto-insert the credit message; only provide it to the AI prompt
   // and instruct Johann to reveal authorship only when explicitly asked by the user.
@@ -45,9 +40,14 @@ Johann: Click the red Generate button in the Quantum RNG area — it'll show a d
     setLoading(true);
     try {
       const url = 'https://cashxchain-ai-v1.cashxchain.workers.dev/';
-      // Compose a stronger prompt including persona and a short example
-      const fullPrompt = `${JOHANN_PERSONA}\n\nSiteContext: ${SITE_SUMMARY}\n\n${JOHANN_EXAMPLES}\nUser: ${text}\n\nInstruction: Answer succinctly. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site. Examples of explicit asks (English/German): 'who made this site', 'who created this site', 'wer hat diese Seite gemacht', 'wer hat die seite erstellt'. When those explicit phrases are used, respond with the credit string exactly: 'This site was created by CashXChain Research (Special Thanks to Dosentelefoni).' Otherwise do not reveal authorship.`;
-      const body = { prompt: fullPrompt, recipient: 'Johann', context: SITE_SUMMARY, temperature: 0.2, max_tokens: 400 };
+      // Compose a stronger, agent-unique prompt enforcing distinct voice
+      const fullPrompt = "AgentName: Johann" + "\n" +
+        "Persona: " + JOHANN_PERSONA + "\n" +
+        "Distinctness: Do NOT imitate or copy other site agents (e.g. Tom). Use a friendly, informal tone and respond in 1-3 short sentences. Return only the assistant text (no 'Johann:' prefix)." +
+        "\n\nSiteContext: " + SITE_SUMMARY + "\n\nExamples:\n" + JOHANN_EXAMPLES + "\nUser: " + text +
+        "\n\nInstruction: Answer succinctly. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site (see examples). If unsure, ask for clarification instead of echoing internal site text.";
+      // Use a higher temperature for Johann to encourage conversational variation
+      const body = { prompt: fullPrompt, recipient: 'Johann', context: SITE_SUMMARY, temperature: 0.75, max_tokens: 300 };
 
       // retry logic with small backoff
       let resp = null;
@@ -85,20 +85,19 @@ Johann: Click the red Generate button in the Quantum RNG area — it'll show a d
         if (reply.length > 2000) reply = reply.slice(0, 2000) + '...';
       }
       // If the AI accidentally echoed the site summary or credit without an explicit ask, strip it
-      const authorshipPattern = /who (made|created) this site|wer (hat )?(die|diese) seite (gemacht|erstellt)/i;
       if (!authorshipPattern.test(text)) {
         if (typeof reply === 'string' && (reply.includes('This demo site contains') || reply.includes('CashXChain Research') || reply.includes('Dosentelefoni'))) {
           // remove the site summary portion
           reply = reply.replace(/This demo site contains[\s\S]*/i, '').replace(/CashXChain Research\s*\(?Special Thanks to Dosentelefoni\)?/i, '').trim();
         }
-        if (!reply || reply.length < 6) reply = 'Johann: I can help with that — could you rephrase your question?';
+        if (!reply || reply.length < 6) reply = 'I can help with that — could you rephrase your question?';
       }
-      if (!reply) reply = 'Johann: I got your message.';
+      if (!reply) reply = 'I got your message.';
       setMessages((m) => [...m, { from: 'Johann', text: reply }]);
     } catch (e) {
       console.warn('Johann AI request failed', e);
-      setError('Johann: Sorry, I cannot reach the AI right now.');
-      setMessages((m) => [...m, { from: 'Johann', text: 'Johann: Sorry, I cannot reach the AI right now.' }]);
+      setError('Sorry, I cannot reach the AI right now.');
+      setMessages((m) => [...m, { from: 'Johann', text: 'Sorry, I cannot reach the AI right now.' }]);
     } finally {
       setLoading(false);
     }
