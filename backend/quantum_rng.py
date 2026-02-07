@@ -6,23 +6,50 @@ Default: uses the SV1 simulator for development. To use real hardware, set
 the `--device` argument or the `AWS_BRAKET_DEVICE` environment variable to
 the ARN of a real device (e.g. an IonQ or Rigetti device ARN).
 
+Falls back to a local simulation if the Braket SDK is not compatible
+with the current Python version (e.g. Python 3.14+).
+
 Requires AWS credentials configured in the environment or via AWS CLI.
 """
 import os
 import argparse
 import json
 import sys
+import random
 
-from braket.aws import AwsDevice
-from braket.circuits import Circuit
+BRAKET_AVAILABLE = False
+try:
+    from braket.aws import AwsDevice
+    from braket.circuits import Circuit
+    BRAKET_AVAILABLE = True
+except Exception:
+    pass
 
 
-def run_quantum_rng(device_arn: str, shots: int):
+def run_quantum_rng_braket(device_arn: str, shots: int) -> dict:
+    """Run on real AWS Braket device/simulator."""
     device = AwsDevice(device_arn)
     circuit = Circuit().h(0).measure(0)
     task = device.run(circuit, shots=shots)
     result = task.result()
-    return result.measurement_counts
+    return dict(result.measurement_counts)
+
+
+def run_quantum_rng_local(shots: int) -> dict:
+    """Local fallback: simulate a Hadamard gate (50/50 coin flip per shot)."""
+    counts = {'0': 0, '1': 0}
+    for _ in range(shots):
+        bit = random.getrandbits(1)
+        counts[str(bit)] += 1
+    return counts
+
+
+def run_quantum_rng(device_arn: str, shots: int) -> dict:
+    if BRAKET_AVAILABLE:
+        return run_quantum_rng_braket(device_arn, shots)
+    else:
+        print("WARNING: Braket SDK not available, using local RNG fallback", file=sys.stderr)
+        return run_quantum_rng_local(shots)
 
 
 def main():

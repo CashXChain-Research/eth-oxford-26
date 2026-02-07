@@ -1,0 +1,189 @@
+{
+  "_comment": "quantum_vault deployment config — ETH Oxford 2026",
+  "_updated": "2026-02-07",
+
+  "network": "devnet",
+  "rpc_url": "https://fullnode.devnet.sui.io:443",
+
+  "package_id": "0x_REPLACE_AFTER_DEPLOY",
+
+  "objects": {
+    "portfolio_id": "0x_REPLACE_AFTER_DEPLOY",
+    "admin_cap_id": "0x_REPLACE_AFTER_DEPLOY",
+    "agent_cap_id": "0x_REPLACE_AFTER_DEPLOY",
+    "sui_clock": "0x6"
+  },
+
+  "modules": {
+    "agent_registry": "agent_registry",
+    "portfolio": "portfolio",
+    "audit_trail": "audit_trail",
+    "ai_task": "ai_task"
+  },
+
+  "functions": {
+    "admin": {
+      "deposit": "portfolio::deposit",
+      "withdraw": "portfolio::withdraw",
+      "update_limits": "portfolio::update_limits",
+      "freeze_agent": "portfolio::freeze_agent",
+      "unfreeze_agent": "portfolio::unfreeze_agent",
+      "set_paused": "portfolio::set_paused",
+      "issue_agent_cap": "agent_registry::issue_agent_cap"
+    },
+    "agent": {
+      "execute_rebalance": "portfolio::execute_rebalance",
+      "withdraw_for_swap": "portfolio::withdraw_for_swap",
+      "deposit_returns": "portfolio::deposit_returns",
+      "swap_and_rebalance": "portfolio::swap_and_rebalance",
+      "mock_swap": "portfolio::mock_swap",
+      "emit_result": "portfolio::emit_result",
+      "log_execution": "audit_trail::log_execution"
+    }
+  },
+
+  "events": {
+    "TradeEvent": "portfolio::TradeEvent",
+    "QuantumTradeEvent": "portfolio::QuantumTradeEvent",
+    "GuardrailTriggered": "portfolio::GuardrailTriggered",
+    "PausedChanged": "portfolio::PausedChanged",
+    "Deposited": "portfolio::Deposited",
+    "Withdrawn": "portfolio::Withdrawn",
+    "RebalanceResultCreated": "portfolio::RebalanceResultCreated",
+    "MockSwapExecuted": "portfolio::MockSwapExecuted",
+    "PortfolioCreated": "portfolio::PortfolioCreated",
+    "QuantumAuditCreated": "audit_trail::QuantumAuditCreated",
+    "AuditReceiptCreated": "audit_trail::AuditReceiptCreated",
+    "AgentIssued": "agent_registry::AgentIssued"
+  },
+
+  "event_fields_for_frontend": {
+    "_comment": "Person C: use these field names when parsing WebSocket events on ws://localhost:3002",
+
+    "TradeEvent": {
+      "agent_id": "ID (hex string)",
+      "agent_address": "address (hex string)",
+      "input_amount": "u64 (MIST)",
+      "output_amount": "u64 (MIST)",
+      "balance_before": "u64 (MIST)",
+      "balance_after": "u64 (MIST)",
+      "trade_id": "u64",
+      "timestamp": "u64 (ms since epoch)",
+      "is_quantum_optimized": "bool"
+    },
+
+    "QuantumTradeEvent": {
+      "agent_id": "ID (hex string)",
+      "agent_address": "address (hex string)",
+      "input_amount": "u64 (MIST)",
+      "output_amount": "u64 (MIST)",
+      "balance_before": "u64 (MIST)",
+      "balance_after": "u64 (MIST)",
+      "trade_id": "u64",
+      "timestamp": "u64 (ms since epoch)",
+      "is_quantum_optimized": "bool",
+      "quantum_optimization_score": "u64 (0-100)"
+    },
+
+    "GuardrailTriggered": {
+      "agent": "address (hex string)",
+      "reason": "vector<u8> (UTF-8 string)",
+      "requested_amount": "u64 (MIST)",
+      "vault_balance": "u64 (MIST)",
+      "timestamp_ms": "u64"
+    },
+
+    "RebalanceResultCreated": {
+      "result_id": "ID (hex — query this as shared object for full details)",
+      "portfolio_id": "ID (hex)",
+      "agent_id": "ID (hex)",
+      "success": "bool",
+      "quantum_energy": "u64 (score from quantum solver)",
+      "trade_id": "u64"
+    },
+
+    "MockSwapExecuted": {
+      "agent_address": "address (hex string)",
+      "input_amount": "u64 (MIST)",
+      "mock_output": "u64 (MIST, after simulated slippage)",
+      "slippage_bps": "u64 (basis points, e.g. 50 = 0.5%)",
+      "timestamp_ms": "u64"
+    },
+
+    "PausedChanged": {
+      "paused": "bool (true = all trades blocked)"
+    },
+
+    "Deposited": {
+      "amount": "u64 (MIST)",
+      "new_balance": "u64 (MIST)"
+    },
+
+    "Withdrawn": {
+      "amount": "u64 (MIST)",
+      "remaining": "u64 (MIST)",
+      "to": "address (hex string)"
+    },
+
+    "QuantumAuditCreated": {
+      "receipt_id": "ID (hex)",
+      "agent_address": "address (hex string)",
+      "quantum_proof_hash": "vector<u8> (SHA-256 hash, 32 bytes)",
+      "quantum_score": "u64 (0-100)",
+      "portfolio_id": "ID (hex)",
+      "executed_amount": "u64 (MIST)",
+      "timestamp_ms": "u64"
+    }
+  },
+
+  "guardrail_defaults": {
+    "cooldown_ms": 60000,
+    "daily_volume_limit_mist": 50000000000,
+    "max_drawdown_bps": 1000,
+    "bps_denominator": 10000
+  },
+
+  "error_codes": {
+    "0": "EInvalidAgent",
+    "1": "EAgentFrozen",
+    "2": "ECooldownActive",
+    "3": "EVolumeExceeded",
+    "4": "EDrawdownExceeded",
+    "5": "EInsufficientBalance",
+    "6": "EPaused",
+    "7": "ESlippageExceeded"
+  },
+
+  "team": {
+    "korbinian": {
+      "role": "CTO / Smart Contracts",
+      "keys": ["ADMIN_PRIVATE_KEY", "SUI_PRIVATE_KEY"]
+    },
+    "valentin": {
+      "role": "AI / Quantum Backend",
+      "keys": ["AGENT_PRIVATE_KEY"]
+    },
+    "person_c": {
+      "role": "Frontend",
+      "keys": []
+    }
+  },
+
+  "relayer": {
+    "port": 3001,
+    "ws_port": 3002,
+    "endpoints": {
+      "trade": "POST /api/trade",
+      "audit": "POST /api/audit",
+      "pause": "POST /api/pause",
+      "status": "GET  /api/status",
+      "health": "GET  /api/health"
+    },
+    "websocket": "ws://localhost:3002 — Person C connects here for live events"
+  },
+
+  "faucet": {
+    "devnet": "https://faucet.devnet.sui.io/gas",
+    "testnet": "https://faucet.testnet.sui.io/v1/gas"
+  }
+}

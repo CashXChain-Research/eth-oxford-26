@@ -1,10 +1,14 @@
-module ai_task::ai_task;
+module quantum_vault::ai_task;
 
 use sui::object::{Self, UID};
 use sui::transfer;
 use sui::tx_context::{Self, TxContext};
 use sui::event;
 use std::vector;
+
+use quantum_vault::agent_registry::AgentCap;
+
+// ── Structs ─────────────────────────────────────────────────
 
 struct Agent has store, drop {
     wallet: address,
@@ -16,6 +20,8 @@ struct Task has key {
     agents: vector<Agent>,
     admin: address,
 }
+
+// ── Events ──────────────────────────────────────────────────
 
 struct TaskCreated has copy, drop {
     task_id: address,
@@ -33,32 +39,48 @@ struct WinnerSelected has copy, drop {
     random: u64,
 }
 
+// ── Init ────────────────────────────────────────────────────
+
 fun init(ctx: &mut TxContext) {
-    let task_addr = tx_context::sender(ctx);
+    let admin = tx_context::sender(ctx);
     let task = Task {
         id: object::new(ctx),
         agents: vector::empty(),
-        admin: task_addr,
+        admin,
     };
-    event::emit(TaskCreated { task_id: task_addr, admin: task_addr });
+    event::emit(TaskCreated { task_id: admin, admin });
     transfer::share_object(task);
 }
 
-public entry fun register_agent(task: &mut Task, reputation: u64, ctx: &mut TxContext) {
-    let agent = Agent {
-        wallet: tx_context::sender(ctx),
+// ── Entry functions ─────────────────────────────────────────
+
+/// Register for a task. Requires an AgentCap (proof of authorisation).
+public entry fun register_agent(
+    _agent_cap: &AgentCap,
+    task: &mut Task,
+    reputation: u64,
+    ctx: &mut TxContext,
+) {
+    let wallet = tx_context::sender(ctx);
+    vector::push_back(&mut task.agents, Agent { wallet, reputation });
+    event::emit(AgentRegistered {
+        task_admin: task.admin,
+        agent: wallet,
         reputation,
-    };
-    vector::push_back(&mut task.agents, agent);
-    // Emit event so relayer knows a new agent joined
-    event::emit(AgentRegistered { task_admin: task.admin, agent: tx_context::sender(ctx), reputation });
+    });
 }
 
-public entry fun select_winner(task: &mut Task, random_number: u64, ctx: &mut TxContext) {
-    assert!(tx_context::sender(ctx) == task.admin, 0); // Only admin can call
-    let num_agents = vector::length(&task.agents);
-    assert!(num_agents > 0, 1); // At least one agent
-    let winner_index = (random_number as u64) % num_agents;
-    let winner = vector::borrow(&task.agents, winner_index);
+/// Quantum-RNG winner selection. Admin only.
+public entry fun select_winner(
+    task: &mut Task,
+    random_number: u64,
+    ctx: &mut TxContext,
+) {
+    assert!(tx_context::sender(ctx) == task.admin, 0);
+    let len = vector::length(&task.agents);
+    assert!(len > 0, 1);
+
+    let idx = random_number % len;
+    let winner = vector::borrow(&task.agents, idx);
     event::emit(WinnerSelected { winner: winner.wallet, random: random_number });
 }
