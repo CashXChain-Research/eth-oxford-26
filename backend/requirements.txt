@@ -1,0 +1,5 @@
+amazon-braket-sdk
+boto3
+pysui
+python-dotenv
+httpx
