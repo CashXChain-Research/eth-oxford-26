@@ -1,5 +1,27 @@
-amazon-braket-sdk
-boto3
-pysui
+# Core
 python-dotenv
 httpx
+numpy
+
+# D-Wave Ocean SDK (QUBO solver + simulated annealing)
+dimod
+dwave-neal
+
+# LangGraph (agent orchestration)
+langgraph>=0.2.0
+langchain-core>=0.3.0
+
+# AWS Braket (quantum RNG — optional, only for real QPU)
+# amazon-braket-sdk
+# boto3
+
+# Sui integration
+# pysui  # uncomment when using pysui instead of CLI
+
+# API server
+fastapi
+uvicorn[standard]
+websockets
+
+# Testing
+pytest
