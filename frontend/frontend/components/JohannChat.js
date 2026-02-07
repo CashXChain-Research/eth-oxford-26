@@ -11,7 +11,7 @@ export default function JohannChat() {
   const containerRef = useRef(null);
   // Brief site summary to include with every AI request so Johann can answer
   const SITE_SUMMARY = `This demo site contains three main parts: (1) Quantum RNG UI demonstrating a random number generator component; (2) AI Agents demo where Tom responds to user messages and on-chain event comments; (3) a Sui Escrow demo that simulates (or uses a connected wallet for) simple escrow flows. The demo uses a public AI endpoint for agent replies. This site is created by the CashXChain Research department (Special Thanks to Dosentelefoni).`;
-  const JOHANN_PERSONA = `You are Johann, a friendly, informal assistant for demo users. Speak briefly (1-3 sentences), use plain language, include an example or quick action when helpful, and avoid technical jargon.`;
+  const JOHANN_PERSONA = `You are Johann, a friendly, informal assistant for demo users. Prefer UI-focused instructions that reference interface elements (e.g. the Quantum RNG "Generate" button). Speak briefly (1-3 sentences), use plain language, include a quick action or example when helpful, and avoid technical jargon and code snippets unless the user explicitly asks for developer instructions.`;
   const JOHANN_EXAMPLES = `Example:
 User: How do I generate a random number?
 Johann: Click the red "Generate" button in the Quantum RNG section; it shows a demo random number you can copy.`;
@@ -46,8 +46,8 @@ Johann: Click the red "Generate" button in the Quantum RNG section; it shows a d
         "Distinctness: Do NOT imitate or copy other site agents (e.g. Tom). Use a friendly, informal tone and respond in 1-3 short sentences. Return only the assistant text (no 'Johann:' prefix)." +
         "\n\nSiteContext: " + SITE_SUMMARY + "\n\nExamples:\n" + JOHANN_EXAMPLES + "\nUser: " + text +
         "\n\nInstruction: Answer succinctly. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site (see examples). If unsure, ask for clarification instead of echoing internal site text.";
-      // Use a higher temperature for Johann to encourage conversational variation
-      const body = { prompt: fullPrompt, recipient: 'Johann', context: SITE_SUMMARY, temperature: 0.75, max_tokens: 300 };
+      // Use a moderate temperature for Johann and prefer UI guidance over code
+      const body = { prompt: fullPrompt, recipient: 'Johann', context: SITE_SUMMARY, temperature: 0.6, max_tokens: 300 };
 
       // retry logic with small backoff
       let resp = null;
@@ -83,6 +83,11 @@ Johann: Click the red "Generate" button in the Quantum RNG section; it shows a d
         reply = reply.replace(/^Johann:\s*/i, '');
         // clip to reasonable length
         if (reply.length > 2000) reply = reply.slice(0, 2000) + '...';
+      }
+      // If Johann returned developer-style code or library references, prefer UI guidance instead
+      const codePattern = /Math\.random|import\s|random\.|`|console\.log|function\s|randint\(|\bint\b|\bfloat\b/i;
+      if (typeof reply === 'string' && codePattern.test(reply)) {
+        reply = 'Click the red "Generate" button in the Quantum RNG section to produce a demo random number you can copy.';
       }
       // If the AI accidentally echoed the site summary or credit without an explicit ask, strip it
       if (!authorshipPattern.test(text)) {

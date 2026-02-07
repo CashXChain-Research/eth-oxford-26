@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import Link from 'next/link';
 import QuantumRNG from "../components/QuantumRNG";
 import AIAgents from "../components/AIAgents";
+import MarketAgentConsole from "../components/MarketAgentConsole";
 import SuiEscrow from "../components/SuiEscrow";
 
 export default function Page() {
@@ -40,6 +41,7 @@ export default function Page() {
             <div style={{ padding: 12 }}>
               <QuantumRNG />
               <AIAgents bottomInputs={true} chainEvent={lastChainEvent} />
+              <MarketAgentConsole />
               <SuiEscrow onChainEvent={(ev) => setLastChainEvent(ev)} />
             </div>
           </div>
