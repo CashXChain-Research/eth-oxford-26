@@ -19,12 +19,12 @@ export async function POST(req) {
 
     let verified = false;
     try {
-      const sui = await import('@mysten/sui.js');
-      if (sui && typeof sui.verifyMessage === 'function') {
-        try { verified = await sui.verifyMessage(message, signature, address); } catch (e) { /* ignore */ }
+      const { verifyPersonalMessageSignature } = await import('@mysten/sui/verify');
+      if (signature) {
+        try { await verifyPersonalMessageSignature(new TextEncoder().encode(message), signature); verified = true; } catch (e) { /* sig invalid */ }
       }
     } catch (e) {
-      // package not available
+      // package not available or API changed
     }
 
     // demo fallback: accept non-empty signature
