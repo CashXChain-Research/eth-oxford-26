@@ -216,3 +216,19 @@ Error: socket hang up
   code: 'ECONNRESET'
 }
  GET / 200 in 86ms (compile: 6ms, render: 80ms)
+Failed to proxy http://127.0.0.1:3001/optimize Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Failed to proxy http://127.0.0.1:3001/health Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
