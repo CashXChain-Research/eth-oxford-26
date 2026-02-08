@@ -11,16 +11,18 @@ with the current Python version (e.g. Python 3.14+).
 
 Requires AWS credentials configured in the environment or via AWS CLI.
 """
-import os
+
 import argparse
 import json
-import sys
+import os
 import random
+import sys
 
 BRAKET_AVAILABLE = False
 try:
     from braket.aws import AwsDevice
     from braket.circuits import Circuit
+
     BRAKET_AVAILABLE = True
 except Exception:
     pass
@@ -37,7 +39,7 @@ def run_quantum_rng_braket(device_arn: str, shots: int) -> dict:
 
 def run_quantum_rng_local(shots: int) -> dict:
     """Local fallback: simulate a Hadamard gate (50/50 coin flip per shot)."""
-    counts = {'0': 0, '1': 0}
+    counts = {"0": 0, "1": 0}
     for _ in range(shots):
         bit = random.getrandbits(1)
         counts[str(bit)] += 1

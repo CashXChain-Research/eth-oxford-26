@@ -1,55 +1,105 @@
 # Backend
 
-This backend contains:
-
-- `quantum_rng.py`: Python script to generate quantum random numbers using AWS Braket (defaults to SV1 simulator).
-- `sui_contract/`: Sui Move smart contract for AI task agent registration and winner selection.
-- `integrate.py`: Script to run RNG and call select_winner on the Sui contract (one-shot).
-- `relayer.py`: Event listener / Oracle that watches Sui for AgentRegistered events and automatically triggers RNG + select_winner.
+Pure-Python backend for quantum portfolio optimizer.
 
 ## Setup
 
-1. Copy `.env.example` to `.env` and fill in your credentials/keys.
-2. Install Python dependencies: `pip install -r requirements.txt`
-3. For AWS Braket: Ensure AWS credentials are set (via .env or aws configure).
-4. For Sui: Set up Sui CLI, deploy the contract to get PACKAGE_ID and TASK_OBJECT_ID, update .env.
-
-## Usage
-
-### Run quantum RNG (standalone)
 ```bash
-python3 quantum_rng.py --shots 100
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+
+# Configure in .env:
+# PACKAGE_ID, PORTFOLIO_ID, AGENT_CAP_ID, ADMIN_CAP_ID
 ```
 
-### Run full integration (one-shot)
+## Services
+
+FastAPI Relayer (port 3001):
 ```bash
-python3 integrate.py
+uvicorn api:app --port 3001
+# or
+uvicorn blockchain.relayer_server:app --port 3001
 ```
 
-### Run relayer (continuous event listener)
+Event Provider WebSocket (port 3002):
 ```bash
-python3 relayer.py
+python3 -m blockchain.event_provider
 ```
 
-The relayer will:
-1. Poll Sui RPC for AgentRegistered events
-2. Trigger quantum RNG on AWS Braket
-3. Call select_winner with the random number
-
-### Deploy Sui contract
+Async Relayer:
 ```bash
-cd sui_contract
-sui move build
-sui client publish --gas-budget 50000000
+python3 -m blockchain.relayer
 ```
 
-## Flow
+Gas Monitor:
+```bash
+python3 -m blockchain.gas_station --watch
+```
 
-1. User registers an agent on Sui → emits `AgentRegistered` event
-2. Relayer sees the event, triggers quantum RNG
-3. AWS Braket generates random number
-4. Relayer calls `select_winner` on the contract
-5. Winner is selected via modulo and `WinnerSelected` event is emitted
+## CLI
 
-- Run quantum RNG: `python3 quantum_rng.py --shots 100`
-- Deploy Sui contract: Publish the package on Sui devnet/testnet.
+```bash
+python3 -m blockchain.agent_executor demo [amount_mist]
+python3 -m blockchain.agent_executor swap [amount_mist]
+python3 -m blockchain.agent_executor quantum [amount] [min] [score]
+python3 -m blockchain.agent_executor dryrun [amount_mist]
+python3 -m blockchain.agent_executor killswitch
+python3 -m blockchain.agent_executor pause
+python3 -m blockchain.agent_executor resume
+python3 -m blockchain.agent_executor stream
+```
+
+## Code Quality
+
+```bash
+mypy .              # Type checking
+black --check .     # Code formatting
+isort --check-only .  # Import ordering
+flake8 .            # Linting
+pytest              # Tests
+```
+
+## Module Overview
+
+agents/ (2 files)
+  - manager.py: LangGraph StateGraph orchestrator
+
+quantum/ (4 files)
+  - optimizer.py: QUBO solver (D-Wave, scipy backends)
+  - rng.py: Quantum RNG (AWS Braket)
+  - optimize_and_send.py: End-to-end pipeline
+
+blockchain/ (8 files)
+  - client.py: Sui RPC client
+  - ptb_builder.py: Programmable Transaction Block builder
+  - relayer.py: Event listener and relay
+  - relayer_server.py: FastAPI relayer service
+  - agent_executor.py: CLI trade execution
+  - event_provider.py: WebSocket event stream
+  - gas_station.py: Gas monitoring
+
+core/ (3 files)
+  - error_map.py: Move error code mapping
+  - market_data.py: CoinGecko data fetcher
+
+tests/ (8 files)
+  - integration_tests.py: Phase 2 feature validation + RNG integration
+  - safety_tests.py: Kill-switch, redline, attack demos
+  - backtester.py: Historical performance simulation
+  - benchmark_optimizer.py: Classical optimizer comparison
+  - test_qubo.py, test_error_map.py, test_scalability.py: Unit tests
+
+## API
+
+Main entry: api.py (FastAPI)
+
+Endpoints:
+  POST /optimize         Run full pipeline
+  GET /portfolio         Current portfolio state
+  GET /health           Health check
+  WS /ws/logs           Real-time logs
+
+## Environment Variables
+
+See .env.example for all required variables.

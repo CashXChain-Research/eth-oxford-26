@@ -5,6 +5,10 @@ use sui::transfer;
 use sui::tx_context::{Self, TxContext};
 use sui::clock::{Self, Clock};
 use sui::event;
+use sui::display;
+use sui::package;
+use std::string;
+use std::vector;
 
 use quantum_vault::agent_registry::{Self, AgentCap};
 
@@ -66,6 +70,38 @@ struct QuantumAuditCreated has copy, drop {
     executed_amount: u64,
     quantum_score: u64,
     timestamp_ms: u64,
+}
+
+/// One-time witness for Display
+struct AUDIT_TRAIL has drop {}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT — Display standard for audit receipts
+// ═══════════════════════════════════════════════════════════
+
+fun init(otw: AUDIT_TRAIL, ctx: &mut TxContext) {
+    let publisher = package::claim(otw, ctx);
+
+    // Display<QuantumAuditReceipt> — rich display in explorers
+    let audit_display = display::new_with_fields<QuantumAuditReceipt>(
+        &publisher,
+        vector[
+            string::utf8(b"name"),
+            string::utf8(b"description"),
+            string::utf8(b"project_name"),
+            string::utf8(b"image_url"),
+        ],
+        vector[
+            string::utf8(b"Quantum Audit Receipt"),
+            string::utf8(b"Verified quantum execution proof (score: {quantum_score}, amount: {executed_amount})"),
+            string::utf8(b"CashXChain Quantum Vault"),
+            string::utf8(b"https://cashxchain.io/assets/audit_receipt.svg"),
+        ],
+        ctx,
+    );
+    display::update_version(&mut audit_display);
+    transfer::public_transfer(audit_display, tx_context::sender(ctx));
+    transfer::public_transfer(publisher, tx_context::sender(ctx));
 }
 
 // ═══════════════════════════════════════════════════════════

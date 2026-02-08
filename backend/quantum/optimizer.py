@@ -20,8 +20,8 @@ Supports:
 Author: Valentin Israel — ETH Oxford Hackathon 2026
 """
 
-import time
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -31,12 +31,11 @@ try:
     import dimod
     from neal import SimulatedAnnealingSampler
 except ImportError:
-    raise ImportError(
-        "Install D-Wave Ocean SDK: pip install dimod dwave-neal"
-    )
+    raise ImportError("Install D-Wave Ocean SDK: pip install dimod dwave-neal")
 
 try:
     from dwave.system import DWaveSampler, EmbeddingComposite
+
     HAS_DWAVE_QPU = True
 except ImportError:
     HAS_DWAVE_QPU = False
@@ -47,21 +46,24 @@ logger = logging.getLogger(__name__)
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Asset:
     """Single tradeable asset."""
+
     symbol: str
-    expected_return: float      # annualized μ
-    current_weight: float = 0.0 # current portfolio weight [0,1]
-    max_weight: float = 0.40    # guardrail: max position size
+    expected_return: float  # annualized μ
+    current_weight: float = 0.0  # current portfolio weight [0,1]
+    max_weight: float = 0.40  # guardrail: max position size
 
 
 @dataclass
 class OptimizationResult:
     """Result of a QUBO portfolio optimization run."""
-    allocation: Dict[str, int]      # symbol → 0/1
-    energy: float                    # objective value
-    weights: Dict[str, float]       # symbol → normalized weight
+
+    allocation: Dict[str, int]  # symbol → 0/1
+    energy: float  # objective value
+    weights: Dict[str, float]  # symbol → normalized weight
     expected_return: float
     expected_risk: float
     solver_time_s: float
@@ -73,17 +75,19 @@ class OptimizationResult:
 @dataclass
 class QUBOConfig:
     """Hyperparameters for QUBO formulation."""
-    lambda_return: float = 1.0      # weight on returns
-    lambda_risk: float = 0.5        # weight on risk (covariance)
-    lambda_budget: float = 2.0      # penalty for budget constraint
-    target_assets: int = 3          # how many assets to pick (budget)
-    num_reads: int = 200            # SA / QPU samples
-    use_qpu: bool = False           # use real D-Wave QPU
+
+    lambda_return: float = 1.0  # weight on returns
+    lambda_risk: float = 0.5  # weight on risk (covariance)
+    lambda_budget: float = 2.0  # penalty for budget constraint
+    target_assets: int = 3  # how many assets to pick (budget)
+    num_reads: int = 200  # SA / QPU samples
+    use_qpu: bool = False  # use real D-Wave QPU
 
 
 # ---------------------------------------------------------------------------
 # QUBO Builder
 # ---------------------------------------------------------------------------
+
 
 class PortfolioQUBO:
     """Build and solve the portfolio optimization QUBO."""
@@ -99,10 +103,126 @@ class PortfolioQUBO:
         self.cov = cov_matrix  # (n, n)
         self.cfg = config or QUBOConfig()
 
-        assert cov_matrix.shape == (self.n, self.n), \
-            f"Covariance matrix shape mismatch: {cov_matrix.shape} vs ({self.n},{self.n})"
+        assert cov_matrix.shape == (
+            self.n,
+            self.n,
+        ), f"Covariance matrix shape mismatch: {cov_matrix.shape} vs ({self.n},{self.n})"
 
         self._bqm: Optional[dimod.BinaryQuadraticModel] = None
+
+    # ----- continuous weight optimization (post-QUBO) -----
+
+    def _optimize_continuous_weights(
+        self,
+        selected_indices: List[int],
+    ) -> tuple:
+        """
+        After binary asset selection via QUBO, compute optimal continuous
+        weights using mean-variance optimization on the selected sub-universe.
+
+        Solves:  min  w^T Σ_sel w  -  λ * μ_sel^T w
+                 s.t. Σ w_i = 1,  0 ≤ w_i ≤ max_weight_i
+
+        Uses iterative quadratic solver (analytical + projection).
+        Falls back to equal-weight if optimization is infeasible.
+
+        Returns: (weights_dict, expected_return, expected_risk)
+        """
+        n_sel = len(selected_indices)
+
+        sub_mu = np.array([self.assets[i].expected_return for i in selected_indices])
+        sub_cov = self.cov[np.ix_(selected_indices, selected_indices)]
+        max_weights = np.array([self.assets[i].max_weight for i in selected_indices])
+
+        # Risk-return trade-off parameter (from config)
+        lam = self.cfg.lambda_risk / max(self.cfg.lambda_return, 1e-8)
+
+        # ---- Analytical unconstrained solution ----
+        # w* ∝ Σ^{-1} μ  (tangency portfolio direction)
+        try:
+            inv_cov = np.linalg.inv(sub_cov)
+            raw_w = inv_cov @ sub_mu
+            # If all weights are negative (extreme risk aversion), use min-variance
+            if np.all(raw_w <= 0):
+                ones = np.ones(n_sel)
+                raw_w = inv_cov @ ones
+        except np.linalg.LinAlgError:
+            # Singular covariance — fall back to equal weight
+            raw_w = np.ones(n_sel)
+
+        # ---- Normalize to sum=1, enforce bounds via projection ----
+        w = self._project_simplex_bounded(raw_w, max_weights, n_iters=50)
+
+        # ---- Compute portfolio metrics ----
+        exp_ret = float(w @ sub_mu)
+        exp_risk = float(np.sqrt(w @ sub_cov @ w))
+
+        # Build full weights dict
+        weights = {self.assets[i].symbol: 0.0 for i in range(self.n)}
+        for idx_pos, idx_asset in enumerate(selected_indices):
+            weights[self.assets[idx_asset].symbol] = float(w[idx_pos])
+
+        logger.info(
+            f"Continuous weights: "
+            + ", ".join(
+                f"{self.assets[i].symbol}={w[j]:.2%}"
+                for j, i in enumerate(selected_indices)
+            )
+        )
+
+        return weights, exp_ret, exp_risk
+
+    @staticmethod
+    def _project_simplex_bounded(
+        w: np.ndarray,
+        upper_bounds: np.ndarray,
+        n_iters: int = 50,
+    ) -> np.ndarray:
+        """
+        Project weights onto the bounded simplex:
+            Σ w_i = 1,  0 ≤ w_i ≤ ub_i
+
+        Uses Dykstra's alternating projection between the simplex and
+        the box constraints.
+        """
+        n = len(w)
+        # Normalize to sum=1 BEFORE clipping to preserve relative ratios
+        w = np.maximum(w, 0.0)
+        s = w.sum()
+        if s > 1e-12:
+            w = w / s
+        else:
+            w = np.ones(n) / n
+
+        for _ in range(n_iters):
+            # Project onto box [0, ub]
+            clamped = np.clip(w, 0.0, upper_bounds)
+            excess = clamped.sum() - 1.0
+            if abs(excess) < 1e-10:
+                w = clamped
+                break
+            # Distribute excess among non-capped variables
+            if excess > 0:
+                free_mask = clamped < upper_bounds - 1e-10
+            else:
+                free_mask = clamped > 1e-10
+            n_free = free_mask.sum()
+            if n_free == 0:
+                # All at boundaries — scale proportionally
+                s = clamped.sum()
+                if s > 1e-12:
+                    w = clamped / s
+                break
+            clamped[free_mask] -= excess / n_free
+            w = clamped
+
+        # Final safety
+        w = np.clip(w, 0.0, upper_bounds)
+        s = w.sum()
+        if abs(s - 1.0) > 1e-8 and s > 1e-12:
+            w = w / s
+
+        return w
 
     # ----- build -----
 
@@ -152,8 +272,7 @@ class PortfolioQUBO:
 
         self._bqm = bqm
         logger.info(
-            f"Built QUBO: {self.n} variables, "
-            f"{len(J)} quadratic terms, target_assets={K}"
+            f"Built QUBO: {self.n} variables, " f"{len(J)} quadratic terms, target_assets={K}"
         )
         return bqm
 
@@ -202,20 +321,12 @@ class PortfolioQUBO:
             if val == 1:
                 selected_indices.append(i)
 
-        # Compute portfolio metrics
+        # Compute portfolio metrics with CONTINUOUS weight optimization
         n_selected = len(selected_indices)
         if n_selected > 0:
-            equal_w = 1.0 / n_selected
-            weights = {
-                self.assets[i].symbol: equal_w if i in selected_indices else 0.0
-                for i in range(self.n)
-            }
-            mu = np.array([self.assets[i].expected_return for i in selected_indices])
-            w = np.full(n_selected, equal_w)
-            exp_ret = float(w @ mu)
-
-            sub_cov = self.cov[np.ix_(selected_indices, selected_indices)]
-            exp_risk = float(np.sqrt(w @ sub_cov @ w))
+            weights, exp_ret, exp_risk = self._optimize_continuous_weights(
+                selected_indices
+            )
         else:
             weights = {a.symbol: 0.0 for a in self.assets}
             exp_ret = 0.0
@@ -258,26 +369,29 @@ class PortfolioQUBO:
 # Convenience: 5 test-asset universe
 # ---------------------------------------------------------------------------
 
+
 def make_test_universe() -> Tuple[List[Asset], np.ndarray]:
     """
     Return 5 mock crypto assets and a realistic covariance matrix.
     Assets: SUI, ETH, BTC, SOL, AVAX
     """
     assets = [
-        Asset(symbol="SUI",  expected_return=0.35, max_weight=0.40),
-        Asset(symbol="ETH",  expected_return=0.20, max_weight=0.40),
-        Asset(symbol="BTC",  expected_return=0.15, max_weight=0.40),
-        Asset(symbol="SOL",  expected_return=0.30, max_weight=0.40),
+        Asset(symbol="SUI", expected_return=0.35, max_weight=0.40),
+        Asset(symbol="ETH", expected_return=0.20, max_weight=0.40),
+        Asset(symbol="BTC", expected_return=0.15, max_weight=0.40),
+        Asset(symbol="SOL", expected_return=0.30, max_weight=0.40),
         Asset(symbol="AVAX", expected_return=0.25, max_weight=0.40),
     ]
     # Covariance matrix (annualized, synthetic but realistic correlations)
-    cov = np.array([
-        [0.160, 0.048, 0.030, 0.070, 0.055],   # SUI
-        [0.048, 0.090, 0.045, 0.040, 0.035],   # ETH
-        [0.030, 0.045, 0.050, 0.025, 0.020],   # BTC
-        [0.070, 0.040, 0.025, 0.140, 0.060],   # SOL
-        [0.055, 0.035, 0.020, 0.060, 0.110],   # AVAX
-    ])
+    cov = np.array(
+        [
+            [0.160, 0.048, 0.030, 0.070, 0.055],  # SUI
+            [0.048, 0.090, 0.045, 0.040, 0.035],  # ETH
+            [0.030, 0.045, 0.050, 0.025, 0.020],  # BTC
+            [0.070, 0.040, 0.025, 0.140, 0.060],  # SOL
+            [0.055, 0.035, 0.020, 0.060, 0.110],  # AVAX
+        ]
+    )
     return assets, cov
 
 
@@ -285,8 +399,10 @@ def make_test_universe() -> Tuple[List[Asset], np.ndarray]:
 # CLI entry-point
 # ---------------------------------------------------------------------------
 
+
 def main():
-    import argparse, json as _json
+    import argparse
+    import json as _json
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
@@ -318,20 +434,26 @@ def main():
     print(f"Feasible     : {result.feasible}")
     print(f"Allocation   :")
     for sym, w in result.weights.items():
-        flag = "✓" if result.allocation[sym] else " "
+        flag = "" if result.allocation[sym] else " "
         print(f"  [{flag}] {sym:6s}  {w:6.1%}")
 
     # JSON for piping
-    print("\n" + _json.dumps({
-        "allocation": result.allocation,
-        "weights": result.weights,
-        "expected_return": result.expected_return,
-        "expected_risk": result.expected_risk,
-        "energy": result.energy,
-        "solver": result.solver_used,
-        "time_s": result.solver_time_s,
-        "feasible": result.feasible,
-    }, indent=2))
+    print(
+        "\n"
+        + _json.dumps(
+            {
+                "allocation": result.allocation,
+                "weights": result.weights,
+                "expected_return": result.expected_return,
+                "expected_risk": result.expected_risk,
+                "energy": result.energy,
+                "solver": result.solver_used,
+                "time_s": result.solver_time_s,
+                "feasible": result.feasible,
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

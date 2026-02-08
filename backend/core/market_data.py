@@ -21,7 +21,7 @@ try:
 except ImportError:
     raise ImportError("pip install httpx")
 
-from qubo_optimizer import Asset
+from quantum.optimizer import Asset
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +72,13 @@ class MarketDataFetcher:
                 daily_mean = np.mean(log_returns)
                 annual_return = daily_mean * 365
 
-                assets.append(Asset(
-                    symbol=symbol,
-                    expected_return=float(annual_return),
-                    max_weight=0.40,
-                ))
+                assets.append(
+                    Asset(
+                        symbol=symbol,
+                        expected_return=float(annual_return),
+                        max_weight=0.40,
+                    )
+                )
                 logger.info(f"  {symbol}: {len(prices)} prices, E(r)={annual_return:.2%} ann.")
 
             except Exception as e:
@@ -133,6 +135,7 @@ class MarketDataFetcher:
 
 
 # ── CLI test ─────────────────────────────────────────
+
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")

@@ -8,9 +8,14 @@ use sui::transfer;
 use sui::tx_context::{Self, TxContext};
 use sui::clock::{Self, Clock};
 use sui::event;
+use sui::dynamic_field;
+use sui::display;
+use sui::package;
 use std::vector;
+use std::string::{Self, String};
 
 use quantum_vault::agent_registry::{Self, AdminCap, AgentCap};
+use quantum_vault::oracle::{Self, OracleConfig};
 
 // ── Errors ──────────────────────────────────────────────────
 const EInvalidAgent: u64        = 0;
@@ -21,6 +26,10 @@ const EDrawdownExceeded: u64    = 4;
 const EInsufficientBalance: u64 = 5;
 const EPaused: u64              = 6;
 const ESlippageExceeded: u64    = 7;
+const EAtomicRebalanceFailed: u64 = 8;
+const ESwapCountMismatch: u64     = 9;
+const EPostRebalanceDrawdown: u64 = 10;
+const EProtocolNotWhitelisted: u64 = 11;
 
 // ── Defaults ────────────────────────────────────────────────
 const DEFAULT_COOLDOWN_MS: u64  = 60_000;           // 60 s
@@ -48,6 +57,8 @@ struct Portfolio has key {
     trade_count: u64,
     // ── Access control ──
     frozen_agents: vector<address>,
+    // ── Protocol whitelist ──
+    protocol_whitelist: vector<address>,
     // ── Emergency ──
     paused: bool,
 }
@@ -118,6 +129,29 @@ struct QuantumTradeEvent has copy, drop {
 
 struct PausedChanged has copy, drop { paused: bool }
 
+/// Emitted when an atomic_rebalance completes successfully.
+struct AtomicRebalanceCompleted has copy, drop {
+    agent_address: address,
+    num_swaps: u64,
+    total_input: u64,
+    total_output: u64,
+    balance_before: u64,
+    balance_after: u64,
+    max_slippage_bps: u64,
+    trade_id: u64,
+    timestamp_ms: u64,
+}
+
+/// Emitted when oracle-validated swap passes.
+struct OracleSwapExecuted has copy, drop {
+    agent_address: address,
+    amount: u64,
+    oracle_price_x8: u64,
+    expected_price_x8: u64,
+    slippage_bps: u64,
+    timestamp_ms: u64,
+}
+
 /// Result object — shared on-chain so Person C's frontend can
 /// query it by ID immediately after a rebalance completes.
 struct RebalanceResult has key, store {
@@ -152,11 +186,43 @@ struct MockSwapExecuted has copy, drop {
     timestamp_ms: u64,
 }
 
+/// Protocol whitelist management events
+struct ProtocolWhitelisted has copy, drop { protocol: address }
+struct ProtocolRemovedFromWhitelist has copy, drop { protocol: address }
+
+/// One-time witness for Display & Publisher
+struct PORTFOLIO has drop {}
+
 // ═══════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════
 
-fun init(ctx: &mut TxContext) {
+fun init(otw: PORTFOLIO, ctx: &mut TxContext) {
+    // ── Publisher for Display standard ──
+    let publisher = package::claim(otw, ctx);
+
+    // ── Display<RebalanceResult> ──
+    let rebalance_display = display::new_with_fields<RebalanceResult>(
+        &publisher,
+        vector[
+            string::utf8(b"name"),
+            string::utf8(b"description"),
+            string::utf8(b"project_name"),
+            string::utf8(b"image_url"),
+        ],
+        vector[
+            string::utf8(b"Rebalance #{trade_id}"),
+            string::utf8(b"Quantum-optimized portfolio rebalance (energy: {quantum_energy})"),
+            string::utf8(b"CashXChain Quantum Vault"),
+            string::utf8(b"https://cashxchain.io/assets/rebalance_result.svg"),
+        ],
+        ctx,
+    );
+    display::update_version(&mut rebalance_display);
+    transfer::public_transfer(rebalance_display, tx_context::sender(ctx));
+    transfer::public_transfer(publisher, tx_context::sender(ctx));
+
+    // ── Portfolio shared object ──
     let uid = object::new(ctx);
     let pid = object::uid_to_inner(&uid);
 
@@ -172,6 +238,7 @@ fun init(ctx: &mut TxContext) {
         last_trade_timestamp: 0,
         trade_count: 0,
         frozen_agents: vector::empty(),
+        protocol_whitelist: vector::empty(),
         paused: false,
     };
 
@@ -329,6 +396,116 @@ public entry fun set_paused(
 ) {
     portfolio.paused = paused;
     event::emit(PausedChanged { paused });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ADMIN: protocol whitelist management
+// ═══════════════════════════════════════════════════════════
+
+public entry fun add_to_whitelist(
+    _admin: &AdminCap,
+    portfolio: &mut Portfolio,
+    protocol: address,
+) {
+    if (!vector::contains(&portfolio.protocol_whitelist, &protocol)) {
+        vector::push_back(&mut portfolio.protocol_whitelist, protocol);
+        event::emit(ProtocolWhitelisted { protocol });
+    };
+}
+
+public entry fun remove_from_whitelist(
+    _admin: &AdminCap,
+    portfolio: &mut Portfolio,
+    protocol: address,
+) {
+    let (found, idx) = vector::index_of(&portfolio.protocol_whitelist, &protocol);
+    if (found) {
+        vector::remove(&mut portfolio.protocol_whitelist, idx);
+        event::emit(ProtocolRemovedFromWhitelist { protocol });
+    };
+}
+
+/// Check if a protocol address is whitelisted. If the whitelist is
+/// empty, all protocols are allowed (permissive default for demos).
+public fun is_protocol_whitelisted(portfolio: &Portfolio, protocol: address): bool {
+    if (vector::is_empty(&portfolio.protocol_whitelist)) {
+        return true   // empty whitelist = allow all (demo mode)
+    };
+    vector::contains(&portfolio.protocol_whitelist, &protocol)
+}
+
+/// Assert that a protocol is whitelisted. Aborts with EProtocolNotWhitelisted.
+public fun assert_protocol_whitelisted(portfolio: &Portfolio, protocol: address) {
+    assert!(is_protocol_whitelisted(portfolio, protocol), EProtocolNotWhitelisted);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ADMIN: dynamic fields (extensible metadata)
+//
+//  Allows attaching arbitrary key-value data to the Portfolio
+//  without contract upgrades. Use cases:
+//    - Asset allocations, strategy parameters, external oracle configs
+//    - Any typed data that future modules might need
+// ═══════════════════════════════════════════════════════════
+
+/// Attach a u64 metadata field to the Portfolio.
+public entry fun set_metadata_u64(
+    _admin: &AdminCap,
+    portfolio: &mut Portfolio,
+    key: String,
+    value: u64,
+) {
+    if (dynamic_field::exists_(&portfolio.id, key)) {
+        *dynamic_field::borrow_mut<String, u64>(&mut portfolio.id, key) = value;
+    } else {
+        dynamic_field::add(&mut portfolio.id, key, value);
+    };
+}
+
+/// Read a u64 metadata field from the Portfolio.
+public fun get_metadata_u64(portfolio: &Portfolio, key: String): u64 {
+    *dynamic_field::borrow<String, u64>(&portfolio.id, key)
+}
+
+/// Attach a string metadata field to the Portfolio.
+public entry fun set_metadata_string(
+    _admin: &AdminCap,
+    portfolio: &mut Portfolio,
+    key: String,
+    value: String,
+) {
+    if (dynamic_field::exists_(&portfolio.id, key)) {
+        *dynamic_field::borrow_mut<String, String>(&mut portfolio.id, key) = value;
+    } else {
+        dynamic_field::add(&mut portfolio.id, key, value);
+    };
+}
+
+/// Check if a metadata field exists.
+public fun has_metadata(portfolio: &Portfolio, key: String): bool {
+    dynamic_field::exists_(&portfolio.id, key)
+}
+
+/// Remove a u64 metadata field.
+public entry fun remove_metadata_u64(
+    _admin: &AdminCap,
+    portfolio: &mut Portfolio,
+    key: String,
+) {
+    if (dynamic_field::exists_(&portfolio.id, key)) {
+        dynamic_field::remove<String, u64>(&mut portfolio.id, key);
+    };
+}
+
+/// Remove a string metadata field.
+public entry fun remove_metadata_string(
+    _admin: &AdminCap,
+    portfolio: &mut Portfolio,
+    key: String,
+) {
+    if (dynamic_field::exists_(&portfolio.id, key)) {
+        dynamic_field::remove<String, String>(&mut portfolio.id, key);
+    };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -600,6 +777,284 @@ public entry fun mock_swap(
 // ═══════════════════════════════════════════════════════════
 
 public fun balance_value(p: &Portfolio): u64 { balance::value(&p.balance) }
+
+// ═══════════════════════════════════════════════════════════
+//  AGENT ENTRY #5:  oracle_validated_swap
+//
+//  Same as swap_and_rebalance but FIRST validates the
+//  agent's expected price against the oracle price.
+//  Aborts if slippage > max_slippage_bps from OracleConfig.
+// ═══════════════════════════════════════════════════════════
+
+public entry fun oracle_validated_swap(
+    cap: &AgentCap,
+    portfolio: &mut Portfolio,
+    oracle_cfg: &OracleConfig,
+    amount: u64,
+    min_output: u64,
+    oracle_price_x8: u64,
+    expected_price_x8: u64,
+    oracle_timestamp_ms: u64,
+    asset_symbol: vector<u8>,
+    is_quantum_optimized: bool,
+    quantum_optimization_score: u64,
+    clock: &Clock,
+    _ctx: &mut TxContext,
+) {
+    let agent_addr = auth_agent(cap, portfolio);
+    let current_time = clock::timestamp_ms(clock);
+    let bal_before = balance::value(&portfolio.balance);
+
+    // Oracle validation — aborts if slippage too high or price stale
+    let slippage = oracle::validate_price(
+        oracle_cfg,
+        oracle_price_x8,
+        expected_price_x8,
+        oracle_timestamp_ms,
+        current_time,
+        agent_addr,
+        copy asset_symbol,
+    );
+
+    // Standard guardrails
+    enforce_guardrails(portfolio, amount, current_time);
+
+    // Demo mode: output == input
+    let output_amount = amount;
+    assert!(output_amount >= min_output, ESlippageExceeded);
+
+    post_trade(portfolio, amount, current_time);
+
+    event::emit(OracleSwapExecuted {
+        agent_address: agent_addr,
+        amount,
+        oracle_price_x8,
+        expected_price_x8,
+        slippage_bps: slippage,
+        timestamp_ms: current_time,
+    });
+
+    event::emit(QuantumTradeEvent {
+        agent_id: object::id(cap),
+        agent_address: agent_addr,
+        input_amount: amount,
+        output_amount,
+        balance_before: bal_before,
+        balance_after: bal_before,
+        trade_id: portfolio.trade_count,
+        timestamp: current_time,
+        is_quantum_optimized,
+        quantum_optimization_score,
+    });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AGENT ENTRY #6:  atomic_rebalance
+//
+//  Takes a list of swap amounts + min outputs.
+//  Executes ALL swaps atomically (all-or-nothing PTB).
+//  After all swaps, verifies that the portfolio value
+//  is still within safety bounds (drawdown check).
+//
+//  This is the core CTO function — multiple trades in
+//  one transaction block.
+// ═══════════════════════════════════════════════════════════
+
+public entry fun atomic_rebalance(
+    cap: &AgentCap,
+    portfolio: &mut Portfolio,
+    /// Amounts to swap (one per asset). Length = num_swaps.
+    swap_amounts: vector<u64>,
+    /// Minimum acceptable output per swap. Length = num_swaps.
+    swap_min_outputs: vector<u64>,
+    /// Whether this rebalance is quantum-optimized.
+    is_quantum_optimized: bool,
+    /// Quantum optimization score (0–100).
+    quantum_optimization_score: u64,
+    clock: &Clock,
+    _ctx: &mut TxContext,
+) {
+    let agent_addr = auth_agent(cap, portfolio);
+    let current_time = clock::timestamp_ms(clock);
+    let bal_before = balance::value(&portfolio.balance);
+
+    let num_swaps = vector::length(&swap_amounts);
+    assert!(num_swaps == vector::length(&swap_min_outputs), ESwapCountMismatch);
+    assert!(num_swaps > 0, ESwapCountMismatch);
+
+    // ── Execute each swap atomically ──
+    let total_input: u64 = 0;
+    let total_output: u64 = 0;
+    let max_slip: u64 = 0;
+    let i: u64 = 0;
+
+    while (i < num_swaps) {
+        let amount = *vector::borrow(&swap_amounts, i);
+        let min_out = *vector::borrow(&swap_min_outputs, i);
+
+        // Guardrails per swap
+        enforce_guardrails(portfolio, amount, current_time);
+
+        // Demo: output == input (replace with DEX call in production)
+        let output = amount;
+        assert!(output >= min_out, ESlippageExceeded);
+
+        // Calculate slippage for this swap
+        let slip = if (amount > 0 && output < amount) {
+            ((amount - output) * 10_000) / amount
+        } else {
+            0
+        };
+        if (slip > max_slip) {
+            max_slip = slip;
+        };
+
+        total_input = total_input + amount;
+        total_output = total_output + output;
+
+        // Bookkeeping per swap (updates cooldown, volume, trade count)
+        post_trade(portfolio, amount, current_time);
+
+        // Emit per-swap event
+        event::emit(QuantumTradeEvent {
+            agent_id: object::id(cap),
+            agent_address: agent_addr,
+            input_amount: amount,
+            output_amount: output,
+            balance_before: bal_before,
+            balance_after: balance::value(&portfolio.balance),
+            trade_id: portfolio.trade_count,
+            timestamp: current_time,
+            is_quantum_optimized,
+            quantum_optimization_score,
+        });
+
+        i = i + 1;
+    };
+
+    // ── Post-rebalance safety check ──
+    // Verify total portfolio value hasn't dropped below drawdown limit
+    let bal_after = balance::value(&portfolio.balance);
+    if (portfolio.peak_balance > 0 && bal_after < portfolio.peak_balance) {
+        let loss = portfolio.peak_balance - bal_after;
+        let dd_bps = (loss * 10_000) / portfolio.peak_balance;
+        assert!(dd_bps <= portfolio.max_drawdown_bps, EPostRebalanceDrawdown);
+    };
+
+    // ── Summary event ──
+    event::emit(AtomicRebalanceCompleted {
+        agent_address: agent_addr,
+        num_swaps,
+        total_input,
+        total_output,
+        balance_before: bal_before,
+        balance_after: bal_after,
+        max_slippage_bps: max_slip,
+        trade_id: portfolio.trade_count,
+        timestamp_ms: current_time,
+    });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AGENT ENTRY #7:  oracle_atomic_rebalance
+//
+//  Combines oracle validation + atomic multi-swap.
+//  The "gold standard" entry point: validates every price
+//  against the oracle, then executes all swaps atomically.
+// ═══════════════════════════════════════════════════════════
+
+public entry fun oracle_atomic_rebalance(
+    cap: &AgentCap,
+    portfolio: &mut Portfolio,
+    oracle_cfg: &OracleConfig,
+    swap_amounts: vector<u64>,
+    swap_min_outputs: vector<u64>,
+    oracle_prices_x8: vector<u64>,
+    expected_prices_x8: vector<u64>,
+    oracle_timestamps_ms: vector<u64>,
+    asset_symbols: vector<vector<u8>>,
+    is_quantum_optimized: bool,
+    quantum_optimization_score: u64,
+    clock: &Clock,
+    _ctx: &mut TxContext,
+) {
+    let agent_addr = auth_agent(cap, portfolio);
+    let current_time = clock::timestamp_ms(clock);
+
+    // ── Phase 1: Oracle validation for ALL assets ──
+    oracle::validate_prices_batch(
+        oracle_cfg,
+        &oracle_prices_x8,
+        &expected_prices_x8,
+        &oracle_timestamps_ms,
+        &asset_symbols,
+        current_time,
+        agent_addr,
+    );
+
+    // ── Phase 2: Execute all swaps atomically ──
+    let bal_before = balance::value(&portfolio.balance);
+    let num_swaps = vector::length(&swap_amounts);
+    assert!(num_swaps == vector::length(&swap_min_outputs), ESwapCountMismatch);
+
+    let total_input: u64 = 0;
+    let total_output: u64 = 0;
+    let i: u64 = 0;
+
+    while (i < num_swaps) {
+        let amount = *vector::borrow(&swap_amounts, i);
+        let min_out = *vector::borrow(&swap_min_outputs, i);
+
+        enforce_guardrails(portfolio, amount, current_time);
+
+        let output = amount;
+        assert!(output >= min_out, ESlippageExceeded);
+
+        total_input = total_input + amount;
+        total_output = total_output + output;
+
+        post_trade(portfolio, amount, current_time);
+
+        event::emit(QuantumTradeEvent {
+            agent_id: object::id(cap),
+            agent_address: agent_addr,
+            input_amount: amount,
+            output_amount: output,
+            balance_before: bal_before,
+            balance_after: balance::value(&portfolio.balance),
+            trade_id: portfolio.trade_count,
+            timestamp: current_time,
+            is_quantum_optimized,
+            quantum_optimization_score,
+        });
+
+        i = i + 1;
+    };
+
+    // ── Phase 3: Post-rebalance drawdown check ──
+    let bal_after = balance::value(&portfolio.balance);
+    if (portfolio.peak_balance > 0 && bal_after < portfolio.peak_balance) {
+        let loss = portfolio.peak_balance - bal_after;
+        let dd_bps = (loss * 10_000) / portfolio.peak_balance;
+        assert!(dd_bps <= portfolio.max_drawdown_bps, EPostRebalanceDrawdown);
+    };
+
+    event::emit(AtomicRebalanceCompleted {
+        agent_address: agent_addr,
+        num_swaps,
+        total_input,
+        total_output,
+        balance_before: bal_before,
+        balance_after: bal_after,
+        max_slippage_bps: 0,
+        trade_id: portfolio.trade_count,
+        timestamp_ms: current_time,
+    });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VIEW FUNCTIONS (continued)
+// ═══════════════════════════════════════════════════════════
 public fun peak_balance(p: &Portfolio): u64 { p.peak_balance }
 public fun max_drawdown_bps(p: &Portfolio): u64 { p.max_drawdown_bps }
 public fun daily_volume_limit(p: &Portfolio): u64 { p.daily_volume_limit }
@@ -612,4 +1067,4 @@ public fun is_paused(p: &Portfolio): bool { p.paused }
 // ── Test-only ───────────────────────────────────────────────
 
 #[test_only]
-public fun init_for_testing(ctx: &mut TxContext) { init(ctx) }
+public fun init_for_testing(ctx: &mut TxContext) { init(PORTFOLIO {}, ctx) }

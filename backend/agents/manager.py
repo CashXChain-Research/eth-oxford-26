@@ -24,16 +24,18 @@ import numpy as np
 from langgraph.graph import END, StateGraph
 
 # Local
-from qubo_optimizer import (
+from quantum.optimizer import (
     Asset,
     OptimizationResult,
     PortfolioQUBO,
     QUBOConfig,
     make_test_universe,
 )
+from quantum.rng import run_quantum_rng_local
 
 try:
-    from market_data import MarketDataFetcher
+    from core.market_data import MarketDataFetcher
+
     HAS_MARKET_DATA = True
 except ImportError:
     HAS_MARKET_DATA = False
@@ -44,13 +46,15 @@ logger = logging.getLogger(__name__)
 # Shared state that flows through the graph
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PipelineState:
     """Mutable state passed between agents."""
+
     # Inputs
     user_id: str = ""
-    risk_tolerance: float = 0.5           # 0 = conservative, 1 = aggressive
-    use_mock: bool = False                # force mock market data
+    risk_tolerance: float = 0.5  # 0 = conservative, 1 = aggressive
+    use_mock: bool = False  # force mock market data
 
     # MarketAgent fills these
     assets: List[Asset] = field(default_factory=list)
@@ -67,7 +71,9 @@ class PipelineState:
     risk_checks: Dict[str, bool] = field(default_factory=dict)
 
     # Final
-    status: Literal["pending", "approved", "rejected", "error"] = "pending"
+    status: Literal["pending", "approved", "rejected", "error", "pending_approval"] = "pending"
+    requires_approval: bool = False  # multi-sig flag
+    approval_reasons: List[str] = field(default_factory=list)
     logs: List[str] = field(default_factory=list)
 
     def log(self, agent: str, msg: str):
@@ -79,6 +85,7 @@ class PipelineState:
 # ---------------------------------------------------------------------------
 # Helper: state ↔ dict conversion for LangGraph
 # ---------------------------------------------------------------------------
+
 
 def state_to_dict(state: PipelineState) -> Dict[str, Any]:
     """Serialize PipelineState to a JSON-safe dict for LangGraph."""
@@ -108,6 +115,8 @@ def state_to_dict(state: PipelineState) -> Dict[str, Any]:
     d["risk_report"] = state.risk_report
     d["risk_checks"] = state.risk_checks
     d["status"] = state.status
+    d["requires_approval"] = state.requires_approval
+    d["approval_reasons"] = state.approval_reasons
     d["logs"] = state.logs
     return d
 
@@ -119,7 +128,9 @@ def dict_to_state(d: Dict[str, Any]) -> PipelineState:
     state.risk_tolerance = d.get("risk_tolerance", 0.5)
     state.use_mock = d.get("use_mock", False)
     if d.get("assets"):
-        state.assets = [Asset(symbol=a[0], expected_return=a[1], max_weight=a[2]) for a in d["assets"]]
+        state.assets = [
+            Asset(symbol=a[0], expected_return=a[1], max_weight=a[2]) for a in d["assets"]
+        ]
     if d.get("cov_matrix") is not None:
         state.cov_matrix = np.array(d["cov_matrix"])
     state.market_summary = d.get("market_summary", "")
@@ -141,6 +152,8 @@ def dict_to_state(d: Dict[str, Any]) -> PipelineState:
     state.risk_report = d.get("risk_report", "")
     state.risk_checks = d.get("risk_checks", {})
     state.status = d.get("status", "pending")
+    state.requires_approval = d.get("requires_approval", False)
+    state.approval_reasons = d.get("approval_reasons", [])
     state.logs = d.get("logs", [])
     return state
 
@@ -148,6 +161,7 @@ def dict_to_state(d: Dict[str, Any]) -> PipelineState:
 # ---------------------------------------------------------------------------
 # Agent 1: Market Intelligence Agent
 # ---------------------------------------------------------------------------
+
 
 def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -165,9 +179,9 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
             fetcher = MarketDataFetcher()
             assets, cov = fetcher.fetch_prices_and_returns(days=30)
             use_real = True
-            state.log("MarketAgent", "✅ Using REAL market data (CoinGecko 30d)")
+            state.log("MarketAgent", " Using REAL market data (CoinGecko 30d)")
         except Exception as e:
-            state.log("MarketAgent", f"⚠ CoinGecko failed ({e}), using mock data")
+            state.log("MarketAgent", f" CoinGecko failed ({e}), using mock data")
 
     if not use_real:
         assets, cov = make_test_universe()
@@ -196,6 +210,7 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
 # Agent 2: Execution / Quantum-Optimization Agent
 # ---------------------------------------------------------------------------
 
+
 def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
     Build and solve the QUBO model for portfolio optimization.
@@ -220,19 +235,35 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
         use_qpu=False,  # flip to True for real QPU
     )
 
-    state.log("ExecutionAgent", f"QUBO params: target={target}, λ_risk={cfg.lambda_risk:.2f}, λ_ret={cfg.lambda_return:.2f}")
+    state.log(
+        "ExecutionAgent",
+        f"QUBO params: target={target}, λ_risk={cfg.lambda_risk:.2f}, λ_ret={cfg.lambda_return:.2f}",
+    )
     state.log("ExecutionAgent", "Quantum Solver active … running simulated annealing")
 
     optimizer = PortfolioQUBO(state.assets, state.cov_matrix, cfg)
     result = optimizer.solve()
     state.optimization_result = result
 
+    # ── Quantum RNG timing randomization (anti-front-running) ──
+    # Add a random delay (0–2s) derived from quantum RNG to prevent
+    # predictable rebalancing timing that MEV bots could exploit.
+    rng_result = run_quantum_rng_local(shots=16)
+    ones_count = rng_result.get("1", 0)
+    random_delay_s = (ones_count / 16.0) * 2.0  # 0–2 seconds
+    state.log(
+        "ExecutionAgent",
+        f"⏳ Quantum RNG timing jitter: {random_delay_s:.2f}s "
+        f"(anti-front-running, {ones_count}/16 ones)"
+    )
+    time.sleep(random_delay_s)
+
     selected = [s for s, v in result.allocation.items() if v == 1]
     state.log(
         "ExecutionAgent",
         f"Optimization complete in {result.solver_time_s:.3f}s: "
         f"selected={selected}, E(r)={result.expected_return:.4f}, "
-        f"σ={result.expected_risk:.4f}"
+        f"σ={result.expected_risk:.4f}",
     )
 
     return state_to_dict(state)
@@ -243,11 +274,15 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 # Guardrail constants
-MAX_POSITION_WEIGHT = 0.40          # no single asset > 40%
-MAX_PORTFOLIO_RISK = 0.35           # annualized σ cap
-MIN_EXPECTED_RETURN = 0.05          # at least 5% expected
-MAX_SOLVER_TIME_S = 5.0             # solver must be fast
-MAX_DAILY_VOLUME_USD = 1_000_000    # placeholder cap
+MAX_POSITION_WEIGHT = 0.40  # no single asset > 40%
+MAX_PORTFOLIO_RISK = 0.35  # annualized σ cap
+MIN_EXPECTED_RETURN = 0.05  # at least 5% expected
+MAX_SOLVER_TIME_S = 5.0  # solver must be fast
+MAX_DAILY_VOLUME_USD = 1_000_000  # placeholder cap
+
+# Multi-sig approval threshold — trades above this need human sign-off
+APPROVAL_THRESHOLD_USD = 50_000  # trades above $50k require approval
+APPROVAL_RISK_THRESHOLD = 0.30   # or risk σ > 30% requires approval
 
 
 def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -270,34 +305,42 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     # Check 1: Feasibility from optimizer
     checks["optimizer_feasible"] = opt.feasible
     if not opt.feasible:
-        state.log("RiskAgent", f"⚠ Optimizer infeasible: {opt.reason}")
+        state.log("RiskAgent", f" Optimizer infeasible: {opt.reason}")
 
     # Check 2: Max position size
     max_w = max(opt.weights.values()) if opt.weights else 0.0
     checks["position_size_ok"] = max_w <= MAX_POSITION_WEIGHT
     if not checks["position_size_ok"]:
-        state.log("RiskAgent", f"⚠ Position too large: {max_w:.2%} > {MAX_POSITION_WEIGHT:.2%}")
+        state.log("RiskAgent", f" Position too large: {max_w:.2%} > {MAX_POSITION_WEIGHT:.2%}")
 
     # Check 3: Portfolio risk cap
     checks["risk_within_limit"] = opt.expected_risk <= MAX_PORTFOLIO_RISK
     if not checks["risk_within_limit"]:
-        state.log("RiskAgent", f"⚠ Portfolio risk too high: {opt.expected_risk:.4f} > {MAX_PORTFOLIO_RISK}")
+        state.log(
+            "RiskAgent",
+            f" Portfolio risk too high: {opt.expected_risk:.4f} > {MAX_PORTFOLIO_RISK}",
+        )
 
     # Check 4: Minimum expected return
     checks["return_sufficient"] = opt.expected_return >= MIN_EXPECTED_RETURN
     if not checks["return_sufficient"]:
-        state.log("RiskAgent", f"⚠ Expected return too low: {opt.expected_return:.4f} < {MIN_EXPECTED_RETURN}")
+        state.log(
+            "RiskAgent",
+            f" Expected return too low: {opt.expected_return:.4f} < {MIN_EXPECTED_RETURN}",
+        )
 
     # Check 5: Solver speed
     checks["solver_fast_enough"] = opt.solver_time_s <= MAX_SOLVER_TIME_S
     if not checks["solver_fast_enough"]:
-        state.log("RiskAgent", f"⚠ Solver too slow: {opt.solver_time_s:.3f}s > {MAX_SOLVER_TIME_S}s")
+        state.log(
+            "RiskAgent", f" Solver too slow: {opt.solver_time_s:.3f}s > {MAX_SOLVER_TIME_S}s"
+        )
 
     # Check 6: At least one asset selected
     n_selected = sum(1 for v in opt.allocation.values() if v == 1)
     checks["assets_selected"] = n_selected >= 1
     if not checks["assets_selected"]:
-        state.log("RiskAgent", "⚠ No assets selected")
+        state.log("RiskAgent", " No assets selected")
 
     # Aggregate
     all_passed = all(checks.values())
@@ -305,14 +348,43 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     state.risk_approved = all_passed
 
     if all_passed:
-        state.status = "approved"
-        state.risk_report = f"All {len(checks)} checks passed. Transaction approved."
-        state.log("RiskAgent", "✅ All checks passed — APPROVED for on-chain execution")
+        # ── Multi-sig approval threshold check ──
+        approval_reasons = []
+
+        # Check if trade value exceeds threshold (estimate based on weights)
+        total_weight_active = sum(w for w in opt.weights.values() if w > 0)
+        estimated_value = total_weight_active * MAX_DAILY_VOLUME_USD
+        if estimated_value > APPROVAL_THRESHOLD_USD:
+            approval_reasons.append(
+                f"Estimated trade value ${estimated_value:,.0f} > "
+                f"threshold ${APPROVAL_THRESHOLD_USD:,.0f}"
+            )
+
+        # Check if portfolio risk is close to limit
+        if opt.expected_risk > APPROVAL_RISK_THRESHOLD:
+            approval_reasons.append(
+                f"Portfolio risk σ={opt.expected_risk:.4f} > "
+                f"approval threshold {APPROVAL_RISK_THRESHOLD}"
+            )
+
+        if approval_reasons:
+            state.status = "pending_approval"
+            state.requires_approval = True
+            state.approval_reasons = approval_reasons
+            state.risk_report = (
+                f"All {len(checks)} checks passed but requires human approval: "
+                + "; ".join(approval_reasons)
+            )
+            state.log("RiskAgent", f"  PENDING APPROVAL — {'; '.join(approval_reasons)}")
+        else:
+            state.status = "approved"
+            state.risk_report = f"All {len(checks)} checks passed. Transaction approved."
+            state.log("RiskAgent", " All checks passed — APPROVED for on-chain execution")
     else:
         state.status = "rejected"
         failed = [k for k, v in checks.items() if not v]
         state.risk_report = f"Failed checks: {failed}"
-        state.log("RiskAgent", f"❌ REJECTED — failed: {failed}")
+        state.log("RiskAgent", f" REJECTED — failed: {failed}")
 
     return state_to_dict(state)
 
@@ -320,6 +392,7 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # LangGraph Workflow
 # ---------------------------------------------------------------------------
+
 
 def build_agent_graph() -> StateGraph:
     """
@@ -373,6 +446,7 @@ def run_pipeline(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main():
     logging.basicConfig(
         level=logging.INFO,
@@ -381,6 +455,7 @@ def main():
     )
 
     import argparse
+
     parser = argparse.ArgumentParser(description="AI Agent Pipeline")
     parser.add_argument("--risk", type=float, default=0.5, help="Risk tolerance 0-1")
     parser.add_argument("--user", type=str, default="valentin")
@@ -400,7 +475,7 @@ def main():
         print(f"Risk σ : {opt.expected_risk:.4f}")
         print("Allocation:")
         for sym, w in opt.weights.items():
-            flag = "✓" if opt.allocation[sym] else " "
+            flag = "" if opt.allocation[sym] else " "
             print(f"  [{flag}] {sym:6s}  {w:6.1%}")
     print(f"\nRisk Report: {state.risk_report}")
     print(f"Checks: {json.dumps(state.risk_checks, indent=2)}")

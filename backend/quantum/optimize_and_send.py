@@ -21,8 +21,8 @@ import logging
 import sys
 import time
 
-from agents import run_pipeline, state_to_dict
-from sui_client import SuiTransactor
+from agents.manager import run_pipeline, state_to_dict
+from blockchain.client import SuiTransactor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,7 +55,7 @@ def main():
         print(f"  {entry}")
 
     if state.status != "approved":
-        print(f"\n❌ Pipeline result: {state.status}")
+        print(f"\n Pipeline result: {state.status}")
         print(f"   Reason: {state.risk_report}")
         if args.json_out:
             _write_json(args.json_out, state, None)
@@ -69,7 +69,7 @@ def main():
     print(f"  Energy   : {opt.energy:.4f}")
     print(f"  Allocation:")
     for sym, w in opt.weights.items():
-        flag = "✓" if opt.allocation[sym] else " "
+        flag = "" if opt.allocation[sym] else " "
         print(f"    [{flag}] {sym:6s}  {w:6.1%}")
 
     # ---- Step 4: On-chain Execution ----
@@ -88,10 +88,10 @@ def main():
         )
 
     if tx.success:
-        print(f"  ✅ Transaction submitted: {tx.digest}")
+        print(f"   Transaction submitted: {tx.digest}")
         print(f"     Gas used: {tx.gas_used}")
     else:
-        print(f"  ❌ Transaction failed: {tx.error}")
+        print(f"   Transaction failed: {tx.error}")
 
     elapsed_total = time.perf_counter() - t_total
     print(f"\n  ⏱  Total time: {elapsed_total:.3f}s")
@@ -101,7 +101,7 @@ def main():
     if args.json_out:
         _write_json(args.json_out, state, tx)
 
-    print("\n✨ Done.\n")
+    print("\n Done.\n")
 
 
 def _write_json(path, state, tx):

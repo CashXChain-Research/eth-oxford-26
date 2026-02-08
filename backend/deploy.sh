@@ -79,7 +79,7 @@ if [ "$PACKAGE_ID" = "PARSE_FAILED" ] || [ -z "$PACKAGE_ID" ]; then
     exit 1
 fi
 
-green "✅ PACKAGE_ID = $PACKAGE_ID"
+green " PACKAGE_ID = $PACKAGE_ID"
 
 # ── Find created objects ─────────────────────────────────────
 OBJECTS=$(echo "$PUBLISH_OUTPUT" | python3 -c "
@@ -122,9 +122,9 @@ for change in data.get('objectChanges', []):
         print(change['objectId']); break
 " 2>/dev/null || echo "")
 
-green "✅ TASK_OBJECT_ID    = $TASK_OBJECT_ID"
-green "✅ PORTFOLIO_OBJ_ID  = $PORTFOLIO_OBJECT_ID"
-green "✅ ADMIN_CAP_ID      = $ADMIN_CAP_ID"
+green " TASK_OBJECT_ID    = $TASK_OBJECT_ID"
+green " PORTFOLIO_OBJ_ID  = $PORTFOLIO_OBJECT_ID"
+green " ADMIN_CAP_ID      = $ADMIN_CAP_ID"
 
 # ── Update .env ──────────────────────────────────────────────
 if [ -f "$ENV_FILE" ]; then
@@ -140,7 +140,7 @@ if [ -f "$ENV_FILE" ]; then
     sed -i "s|^PORTFOLIO_OBJECT_ID=.*|PORTFOLIO_OBJECT_ID=$PORTFOLIO_OBJECT_ID|" "$ENV_FILE"
     sed -i "s|^PORTFOLIO_ID=.*|PORTFOLIO_ID=$PORTFOLIO_OBJECT_ID|" "$ENV_FILE"
     sed -i "s|^ADMIN_CAP_ID=.*|ADMIN_CAP_ID=$ADMIN_CAP_ID|" "$ENV_FILE"
-    green "✅ .env updated!"
+    green " .env updated!"
 else
     blue "No .env found, creating one..."
     cat > "$ENV_FILE" <<EOF
@@ -152,7 +152,7 @@ SUI_RPC_URL=https://fullnode.devnet.sui.io:443
 SHOTS=100
 POLL_INTERVAL=5
 EOF
-    green "✅ .env created!"
+    green " .env created!"
 fi
 
 # ── Update config.json ───────────────────────────────────────────────────
@@ -168,7 +168,7 @@ cfg['objects']['portfolio_id'] = '${PORTFOLIO_OBJECT_ID}'
 cfg['objects']['admin_cap_id'] = '$ADMIN_CAP_ID'
 with open('$CONFIG_FILE', 'w') as f:
     json.dump(cfg, f, indent=2)
-" 2>/dev/null && green "✅ config.json updated!" || echo "(config.json update skipped)"
+" 2>/dev/null && green " config.json updated!" || echo "(config.json update skipped)"
 fi
 
 echo ""
