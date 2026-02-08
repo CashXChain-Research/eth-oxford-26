@@ -117,8 +117,8 @@ class MarketDataFetcher:
         min_ret, max_ret = min(raw_returns), max(raw_returns)
         ret_range = max_ret - min_ret
 
-        TARGET_CENTER = 0.15    # 15% average annual (crypto equilibrium)
-        TARGET_SPREAD = 0.25    # range ≈ [2.5%, 27.5%]
+        TARGET_CENTER = 0.15  # 15% average annual (crypto equilibrium)
+        TARGET_SPREAD = 0.25  # range ≈ [2.5%, 27.5%]
 
         if ret_range > 1e-10:
             for a in assets:
@@ -141,7 +141,7 @@ class MarketDataFetcher:
         # vol target so the QUBO risk term stays meaningful.
 
         avg_vol = float(np.sqrt(np.mean(np.diag(cov))))
-        TARGET_AVG_VOL = 0.35   # ~35% annualized (typical crypto long-term)
+        TARGET_AVG_VOL = 0.35  # ~35% annualized (typical crypto long-term)
         if avg_vol > 1e-10:
             vol_scale = (TARGET_AVG_VOL / avg_vol) ** 2
             cov = cov * vol_scale

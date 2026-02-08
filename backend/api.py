@@ -186,7 +186,7 @@ async def optimize(req: OptimizeRequest):
                 "note": "This is a dry-run. No transaction was submitted to the blockchain.",
             }
             await broadcast_log(f"  DRY-RUN: PTB generated (NOT submitted to chain)")
-            
+
             # ── Generate Simulation Results ──
             simulation_results = {
                 "mode": "dry-run",
@@ -195,33 +195,43 @@ async def optimize(req: OptimizeRequest):
                     "computation": 500,  # placeholder
                     "storage": 200,  # placeholder
                     "total_units": 700,
-                    "estimated_sui_cost": "0.00007"  # ~700 gas @ 0.0001 SUI/gas
+                    "estimated_sui_cost": "0.00007",  # ~700 gas @ 0.0001 SUI/gas
                 },
                 "swaps": {
                     sym: {
                         "symbol": sym,
                         "amount_usd": e.get("order_size_usd", 0),
                         "slippage_pct": e.get("total_slippage_pct", 0),
-                        "slippage_usd": e.get("order_size_usd", 0) * e.get("total_slippage_pct", 0) / 100,
+                        "slippage_usd": e.get("order_size_usd", 0)
+                        * e.get("total_slippage_pct", 0)
+                        / 100,
                         "min_out_mist": e.get("min_out_mist", 0),
                         "market_impact_pct": e.get("raw_impact_pct", 0),
                     }
                     for sym, e in (state.slippage_estimates or {}).items()
                 },
                 "totals": {
-                    "total_value_usd": sum(e.get("order_size_usd", 0) for e in (state.slippage_estimates or {}).values()),
+                    "total_value_usd": sum(
+                        e.get("order_size_usd", 0)
+                        for e in (state.slippage_estimates or {}).values()
+                    ),
                     "total_slippage_usd": sum(
                         e.get("order_size_usd", 0) * e.get("total_slippage_pct", 0) / 100
                         for e in (state.slippage_estimates or {}).values()
                     ),
                     "avg_slippage_pct": (
-                        sum(e.get("total_slippage_pct", 0) for e in (state.slippage_estimates or {}).values())
+                        sum(
+                            e.get("total_slippage_pct", 0)
+                            for e in (state.slippage_estimates or {}).values()
+                        )
                         / len(state.slippage_estimates or [1])
                     ),
-                }
+                },
             }
-            await broadcast_log(f"  Simulation: {simulation_results['totals']['total_value_usd']:.2f} USD, "
-                              f"avg slippage {simulation_results['totals']['avg_slippage_pct']:.4%}")
+            await broadcast_log(
+                f"  Simulation: {simulation_results['totals']['total_value_usd']:.2f} USD, "
+                f"avg slippage {simulation_results['totals']['avg_slippage_pct']:.4%}"
+            )
         else:
             # REAL EXECUTION: Submit to chain with slippage protection
             tx = transactor.execute_rebalance(
@@ -247,6 +257,7 @@ async def optimize(req: OptimizeRequest):
     elif state.status == "pending_approval" and opt:
         # Store for later approval
         import uuid
+
         approval_id = str(uuid.uuid4())[:8]
         pending_approvals[approval_id] = {
             "state": state_to_dict(state),
@@ -254,8 +265,7 @@ async def optimize(req: OptimizeRequest):
             "timestamp": time.time(),
         }
         await broadcast_log(
-            f"  Requires human approval (id={approval_id}): "
-            + "; ".join(state.approval_reasons)
+            f"  Requires human approval (id={approval_id}): " + "; ".join(state.approval_reasons)
         )
     elif state.status == "rejected":
         await broadcast_log(f" Rejected: {state.risk_report}")
@@ -276,14 +286,18 @@ async def optimize(req: OptimizeRequest):
                     "symbol": sym,
                     "amount_usd": e.get("order_size_usd", 0),
                     "slippage_pct": e.get("total_slippage_pct", 0),
-                    "slippage_usd": e.get("order_size_usd", 0) * e.get("total_slippage_pct", 0) / 100,
+                    "slippage_usd": e.get("order_size_usd", 0)
+                    * e.get("total_slippage_pct", 0)
+                    / 100,
                     "min_out_mist": e.get("min_out_mist", 0),
                     "market_impact_pct": e.get("raw_impact_pct", 0),
                 }
                 for sym, e in state.slippage_estimates.items()
             },
             "totals": {
-                "total_value_usd": sum(e.get("order_size_usd", 0) for e in state.slippage_estimates.values()),
+                "total_value_usd": sum(
+                    e.get("order_size_usd", 0) for e in state.slippage_estimates.values()
+                ),
                 "total_slippage_usd": sum(
                     e.get("order_size_usd", 0) * e.get("total_slippage_pct", 0) / 100
                     for e in state.slippage_estimates.values()
@@ -466,6 +480,7 @@ async def approve_trade(req: ApprovalAction):
 
     # Execute the approved trade
     from agents.manager import dict_to_state
+
     state = dict_to_state(state_dict)
     opt = state.optimization_result
     tx_result = None
@@ -508,9 +523,11 @@ async def list_pending_approvals():
                 "approval_id": aid,
                 "timestamp": entry["timestamp"],
                 "reasons": entry["state"].get("approval_reasons", []),
-                "expected_return": entry["state"]
-                .get("optimization_result", {})
-                .get("expected_return", 0) if entry["state"].get("optimization_result") else 0,
+                "expected_return": (
+                    entry["state"].get("optimization_result", {}).get("expected_return", 0)
+                    if entry["state"].get("optimization_result")
+                    else 0
+                ),
             }
             for aid, entry in pending_approvals.items()
         ]
@@ -576,7 +593,7 @@ async def startup():
 async def get_benchmark():
     """
     Return Classical vs Quantum benchmark results.
-    
+
     Shows why Quantum is essential for >50 assets:
     - 5 assets: Classical 0.01s vs Quantum 0.8s (classical still wins)
     - 50 assets: Classical 10s vs Quantum 0.85s (12x quantum faster)
@@ -584,7 +601,7 @@ async def get_benchmark():
     - 250 assets: Classical 1250s vs Quantum 1.05s (1190x quantum faster!)
     """
     import json, math
-    
+
     def sanitize_floats(obj):
         """Replace inf/nan with JSON-safe values."""
         if isinstance(obj, float):
@@ -596,7 +613,7 @@ async def get_benchmark():
         if isinstance(obj, list):
             return [sanitize_floats(v) for v in obj]
         return obj
-    
+
     # Read from previous benchmark run
     try:
         with open("/tmp/benchmark_results.json", "r") as f:
@@ -607,14 +624,70 @@ async def get_benchmark():
         return {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "results": [
-                {"num_assets": 5, "solver_type": "classical_theoretical", "time_seconds": 0.01, "optimal_return": 0.0, "optimal_risk": 0.0, "feasible": True},
-                {"num_assets": 5, "solver_type": "quantum", "time_seconds": 0.8, "optimal_return": 0.1261, "optimal_risk": 0.004, "feasible": True},
-                {"num_assets": 50, "solver_type": "classical_theoretical", "time_seconds": 10.0, "optimal_return": 0.0, "optimal_risk": 0.0, "feasible": True},
-                {"num_assets": 50, "solver_type": "quantum", "time_seconds": 0.85, "optimal_return": 0.0785, "optimal_risk": 0.0013, "feasible": True},
-                {"num_assets": 100, "solver_type": "classical_theoretical", "time_seconds": 80.0, "optimal_return": 0.0, "optimal_risk": 0.0, "feasible": True},
-                {"num_assets": 100, "solver_type": "quantum", "time_seconds": 0.9, "optimal_return": 0.0846, "optimal_risk": 0.0009, "feasible": True},
-                {"num_assets": 250, "solver_type": "classical_theoretical", "time_seconds": 1250.0, "optimal_return": 0.0, "optimal_risk": 0.0, "feasible": True},
-                {"num_assets": 250, "solver_type": "quantum", "time_seconds": 1.05, "optimal_return": 0.0779, "optimal_risk": 0.0006, "feasible": True},
+                {
+                    "num_assets": 5,
+                    "solver_type": "classical_theoretical",
+                    "time_seconds": 0.01,
+                    "optimal_return": 0.0,
+                    "optimal_risk": 0.0,
+                    "feasible": True,
+                },
+                {
+                    "num_assets": 5,
+                    "solver_type": "quantum",
+                    "time_seconds": 0.8,
+                    "optimal_return": 0.1261,
+                    "optimal_risk": 0.004,
+                    "feasible": True,
+                },
+                {
+                    "num_assets": 50,
+                    "solver_type": "classical_theoretical",
+                    "time_seconds": 10.0,
+                    "optimal_return": 0.0,
+                    "optimal_risk": 0.0,
+                    "feasible": True,
+                },
+                {
+                    "num_assets": 50,
+                    "solver_type": "quantum",
+                    "time_seconds": 0.85,
+                    "optimal_return": 0.0785,
+                    "optimal_risk": 0.0013,
+                    "feasible": True,
+                },
+                {
+                    "num_assets": 100,
+                    "solver_type": "classical_theoretical",
+                    "time_seconds": 80.0,
+                    "optimal_return": 0.0,
+                    "optimal_risk": 0.0,
+                    "feasible": True,
+                },
+                {
+                    "num_assets": 100,
+                    "solver_type": "quantum",
+                    "time_seconds": 0.9,
+                    "optimal_return": 0.0846,
+                    "optimal_risk": 0.0009,
+                    "feasible": True,
+                },
+                {
+                    "num_assets": 250,
+                    "solver_type": "classical_theoretical",
+                    "time_seconds": 1250.0,
+                    "optimal_return": 0.0,
+                    "optimal_risk": 0.0,
+                    "feasible": True,
+                },
+                {
+                    "num_assets": 250,
+                    "solver_type": "quantum",
+                    "time_seconds": 1.05,
+                    "optimal_return": 0.0779,
+                    "optimal_risk": 0.0006,
+                    "feasible": True,
+                },
             ],
             "insight": "For 250 assets: Classical ~1250s (20min) vs Quantum ~1s. Quantum is NOT overkill—it's essential.",
         }

@@ -37,11 +37,13 @@ from quantum.rng import run_quantum_rng_local
 # Wallet analysis
 try:
     from blockchain.client import SuiClient
+
     HAS_SUI_CLIENT = True
 except ImportError:
     HAS_SUI_CLIENT = False
 
 AI_ENDPOINT = "https://cashxchain-ai-v1.cashxchain.workers.dev/"
+
 
 def call_ai_agent(context: str, instruction: str, fallback: str) -> str:
     """
@@ -58,10 +60,13 @@ def call_ai_agent(context: str, instruction: str, fallback: str) -> str:
         )
 
         with httpx.Client(timeout=20.0) as client:
-            resp = client.post(AI_ENDPOINT, json={
-                "prompt": full_prompt,
-                "max_tokens": 200,
-            })
+            resp = client.post(
+                AI_ENDPOINT,
+                json={
+                    "prompt": full_prompt,
+                    "max_tokens": 200,
+                },
+            )
             resp.raise_for_status()
             data = resp.json()
             ai_text = data.get("result", {}).get("response", "")
@@ -264,8 +269,11 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
                 state.wallet_allocation = portfolio.get("allocation_pct", {})
                 state.wallet_total_usd = portfolio.get("total_value_usd", 0)
                 state.wallet_analyzed = True
-                state.log("MarketAgent", f"📦 Wallet analyzed: ${state.wallet_total_usd:.0f} in {len(state.wallet_holdings)} assets")
-                
+                state.log(
+                    "MarketAgent",
+                    f"📦 Wallet analyzed: ${state.wallet_total_usd:.0f} in {len(state.wallet_holdings)} assets",
+                )
+
                 # Build wallet summary for AI
                 wallet_parts = [f"{sym}: {pct}%" for sym, pct in state.wallet_allocation.items()]
                 wallet_summary = f"Current Holdings: {', '.join(wallet_parts)} (Total: ${state.wallet_total_usd:.0f})"
@@ -310,13 +318,13 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     )
     state.log("MarketAgent", state.market_summary)
     state.log("MarketAgent", f"Assets: {[a.symbol for a in assets]}")
-    
+
     # ── Explainable AI: Generate reasoning for this decision ──
     asset_details = []
     for a in assets:
         vol = np.sqrt(state.cov_matrix[assets.index(a), assets.index(a)])
         asset_details.append(f"{a.symbol} (ret={a.expected_return:.2%}, vol={vol:.2%})")
-    
+
     # Raw data context for the AI (including wallet holdings)
     context_str = (
         f"Wallet: {state.user_id}\n"
@@ -403,7 +411,7 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     state.log(
         "ExecutionAgent",
         f"⏳ Quantum RNG timing jitter: {random_delay_s:.2f}s "
-        f"(anti-front-running, {ones_count}/16 ones)"
+        f"(anti-front-running, {ones_count}/16 ones)",
     )
     time.sleep(random_delay_s)
 
@@ -418,7 +426,7 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     # ── Explainable AI: Generate reasoning for optimization ──
     rebalance_details = []
     selected_metrics = []
-    
+
     # Enrich context with per-asset stats key for the AI to reason about WHY
     for sym, alloc in result.allocation.items():
         if alloc == 1:
@@ -427,9 +435,11 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
             # Find asset object to get return info
             asset_obj = next((a for a in state.assets if a.symbol == sym), None)
             if asset_obj:
-               idx = [a.symbol for a in state.assets].index(sym)
-               vol = np.sqrt(state.cov_matrix[idx, idx])
-               selected_metrics.append(f"{sym} (Return {asset_obj.expected_return:.1%}, Risk {vol:.1%})")
+                idx = [a.symbol for a in state.assets].index(sym)
+                vol = np.sqrt(state.cov_matrix[idx, idx])
+                selected_metrics.append(
+                    f"{sym} (Return {asset_obj.expected_return:.1%}, Risk {vol:.1%})"
+                )
 
     # Build wallet context for personalization
     wallet_context = ""
@@ -502,10 +512,7 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
 
             any_exceeds = any(e.exceeds_max_impact for e in estimates.values())
             if any_exceeds:
-                state.log(
-                    "ExecutionAgent",
-                    "WARNING: Some swaps exceed max impact threshold (5%)"
-                )
+                state.log("ExecutionAgent", "WARNING: Some swaps exceed max impact threshold (5%)")
         except Exception as e:
             state.log("ExecutionAgent", f"Slippage estimation failed: {e}")
     else:
@@ -527,7 +534,7 @@ MAX_DAILY_VOLUME_USD = 1_000_000  # placeholder cap
 
 # Multi-sig approval threshold — trades above this need human sign-off
 APPROVAL_THRESHOLD_USD = 50_000  # trades above $50k require approval
-APPROVAL_RISK_THRESHOLD = 0.30   # or risk σ > 30% requires approval
+APPROVAL_RISK_THRESHOLD = 0.30  # or risk σ > 30% requires approval
 
 
 def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -577,9 +584,7 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     # Check 5: Solver speed
     checks["solver_fast_enough"] = opt.solver_time_s <= MAX_SOLVER_TIME_S
     if not checks["solver_fast_enough"]:
-        state.log(
-            "RiskAgent", f" Solver too slow: {opt.solver_time_s:.3f}s > {MAX_SOLVER_TIME_S}s"
-        )
+        state.log("RiskAgent", f" Solver too slow: {opt.solver_time_s:.3f}s > {MAX_SOLVER_TIME_S}s")
 
     # Check 6: At least one asset selected
     n_selected = sum(1 for v in opt.allocation.values() if v == 1)
@@ -590,18 +595,16 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     # Check 7: Slippage / market impact within bounds
     if state.slippage_estimates:
         any_exceeds = any(
-            e.get("exceeds_max_impact", False)
-            for e in state.slippage_estimates.values()
+            e.get("exceeds_max_impact", False) for e in state.slippage_estimates.values()
         )
         checks["slippage_acceptable"] = not any_exceeds
         if any_exceeds:
             bad = [s for s, e in state.slippage_estimates.items() if e.get("exceeds_max_impact")]
             state.log("RiskAgent", f" Market impact too high for: {bad}")
         else:
-            avg_slip = np.mean([
-                e.get("total_slippage_pct", 0)
-                for e in state.slippage_estimates.values()
-            ])
+            avg_slip = np.mean(
+                [e.get("total_slippage_pct", 0) for e in state.slippage_estimates.values()]
+            )
             state.log("RiskAgent", f" Slippage OK (avg {avg_slip:.4%} per swap)")
     else:
         checks["slippage_acceptable"] = True  # no model = pass (graceful)
@@ -642,24 +645,19 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
             reasoning_lines.append(f"  {status} — Assets selected: {n_sel}")
         elif check_name == "slippage_acceptable":
             if state.slippage_estimates:
-                avg_slip = np.mean([
-                    e.get("total_slippage_pct", 0)
-                    for e in state.slippage_estimates.values()
-                ])
-                reasoning_lines.append(
-                    f"  {status} — Avg slippage {avg_slip:.4%} acceptable"
+                avg_slip = np.mean(
+                    [e.get("total_slippage_pct", 0) for e in state.slippage_estimates.values()]
                 )
+                reasoning_lines.append(f"  {status} — Avg slippage {avg_slip:.4%} acceptable")
             else:
                 reasoning_lines.append(f"  {status} — No slippage model (graceful pass)")
-    
+
     fallback_text = "\n".join(reasoning_lines)
-    
+
     n_passed = sum(1 for v in checks.values() if v)
     n_total = len(checks)
     context_str = (
-        f"Wallet: {state.user_id}\n"
-        f"Checks: {n_passed}/{n_total} passed\n"
-        f"{fallback_text}"
+        f"Wallet: {state.user_id}\n" f"Checks: {n_passed}/{n_total} passed\n" f"{fallback_text}"
     )
     if not all_passed:
         failed = [k for k, v in checks.items() if not v]
@@ -669,7 +667,7 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
         f"For wallet {state.user_id}: {n_passed}/{n_total} safety checks passed. "
         f"{'Trade is SAFE. Confirm briefly why.' if all_passed else 'Trade REJECTED. Explain which checks failed and what the user should change.'}"
     )
-    
+
     state.reasoning["RiskAgent"] = call_ai_agent(context_str, ai_instruction, fallback_text)
 
     if all_passed:

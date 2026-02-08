@@ -67,8 +67,11 @@ def attack_concentrated_position() -> TestResult:
         allocation={"SUI": 1, "ETH": 0, "BTC": 0, "SOL": 0, "AVAX": 0},
         energy=-1.0,
         weights={"SUI": 1.0, "ETH": 0.0, "BTC": 0.0, "SOL": 0.0, "AVAX": 0.0},
-        expected_return=0.35, expected_risk=0.40,
-        solver_time_s=0.01, solver_used="FakeAttacker", feasible=True,
+        expected_return=0.35,
+        expected_risk=0.40,
+        solver_time_s=0.01,
+        solver_used="FakeAttacker",
+        feasible=True,
     )
     r = _run_risk_check(result)
     return TestResult(
@@ -84,8 +87,11 @@ def attack_extreme_risk() -> TestResult:
         allocation={"SUI": 1, "ETH": 1, "BTC": 0, "SOL": 1, "AVAX": 0},
         energy=-2.0,
         weights={"SUI": 0.33, "ETH": 0.33, "BTC": 0.0, "SOL": 0.34, "AVAX": 0.0},
-        expected_return=0.25, expected_risk=0.80,
-        solver_time_s=0.01, solver_used="FakeAttacker", feasible=True,
+        expected_return=0.25,
+        expected_risk=0.80,
+        solver_time_s=0.01,
+        solver_used="FakeAttacker",
+        feasible=True,
     )
     r = _run_risk_check(result)
     return TestResult(
@@ -101,8 +107,11 @@ def attack_zero_return() -> TestResult:
         allocation={"SUI": 1, "ETH": 1, "BTC": 1, "SOL": 0, "AVAX": 0},
         energy=0.0,
         weights={"SUI": 0.33, "ETH": 0.33, "BTC": 0.34, "SOL": 0.0, "AVAX": 0.0},
-        expected_return=0.0, expected_risk=0.15,
-        solver_time_s=0.01, solver_used="FakeAttacker", feasible=True,
+        expected_return=0.0,
+        expected_risk=0.15,
+        solver_time_s=0.01,
+        solver_used="FakeAttacker",
+        feasible=True,
     )
     r = _run_risk_check(result)
     return TestResult(
@@ -118,8 +127,11 @@ def attack_slow_solver() -> TestResult:
         allocation={"SUI": 1, "ETH": 0, "BTC": 1, "SOL": 1, "AVAX": 0},
         energy=-0.5,
         weights={"SUI": 0.33, "ETH": 0.0, "BTC": 0.33, "SOL": 0.34, "AVAX": 0.0},
-        expected_return=0.20, expected_risk=0.20,
-        solver_time_s=12.0, solver_used="SlowAttacker", feasible=True,
+        expected_return=0.20,
+        expected_risk=0.20,
+        solver_time_s=12.0,
+        solver_used="SlowAttacker",
+        feasible=True,
     )
     r = _run_risk_check(result)
     return TestResult(
@@ -135,8 +147,11 @@ def attack_empty_portfolio() -> TestResult:
         allocation={"SUI": 0, "ETH": 0, "BTC": 0, "SOL": 0, "AVAX": 0},
         energy=0.0,
         weights={"SUI": 0.0, "ETH": 0.0, "BTC": 0.0, "SOL": 0.0, "AVAX": 0.0},
-        expected_return=0.0, expected_risk=0.0,
-        solver_time_s=0.01, solver_used="FakeAttacker", feasible=True,
+        expected_return=0.0,
+        expected_risk=0.0,
+        solver_time_s=0.01,
+        solver_used="FakeAttacker",
+        feasible=True,
     )
     r = _run_risk_check(result)
     return TestResult(
@@ -157,8 +172,10 @@ def legit_trade() -> TestResult:
         )
     except Exception as e:
         return TestResult(
-            name="Legitimate Trade", passed=False,
-            detail="Error during execution", error=str(e)[:100],
+            name="Legitimate Trade",
+            passed=False,
+            detail="Error during execution",
+            error=str(e)[:100],
         )
 
 

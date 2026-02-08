@@ -111,7 +111,7 @@ def fit_garch(
         forecasts = result.forecast(horizon=horizon, reindex=False)
         # variance is in (pct²), convert back: divide by 100² then annualize
         forecast_var_pct = float(forecasts.variance.iloc[-1].values[-1])
-        daily_var = forecast_var_pct / (100.0 ** 2)
+        daily_var = forecast_var_pct / (100.0**2)
         annual_vol = float(np.sqrt(daily_var * 365))
 
         logger.info(
@@ -244,7 +244,7 @@ def main():
         sigma = vol
         for t in range(n_days):
             r[t] = np.random.normal(0.0003, sigma)
-            sigma = np.sqrt(0.00001 + 0.1 * r[t] ** 2 + 0.85 * sigma ** 2)
+            sigma = np.sqrt(0.00001 + 0.1 * r[t] ** 2 + 0.85 * sigma**2)
         returns.append(r)
 
     return_matrix = np.array(returns)
@@ -262,8 +262,7 @@ def main():
         )
         if fc.model_used == "garch":
             print(
-                f"           α={fc.alpha:.4f} β={fc.beta:.4f} "
-                f"persistence={fc.persistence:.4f}"
+                f"           α={fc.alpha:.4f} β={fc.beta:.4f} " f"persistence={fc.persistence:.4f}"
             )
 
     print(f"\n  Covariance matrix condition: {np.linalg.cond(cov):.1f}")

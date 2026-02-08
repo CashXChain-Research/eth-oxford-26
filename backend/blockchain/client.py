@@ -126,17 +126,17 @@ class SuiClient:
         """
         Read the latest Portfolio state from the blockchain.
         Invalidates cache and updates _portfolio_cache.
-        
+
         Call this AFTER a successful trade to avoid stale state.
         """
         global _portfolio_cache, _cache_timestamp
         oid = object_id or PORTFOLIO_OBJECT_ID
         if not oid:
             raise ValueError("No PORTFOLIO_OBJECT_ID configured")
-        
+
         portfolio_obj = self.get_object(oid)
         fields = portfolio_obj.get("data", {}).get("content", {}).get("fields", {})
-        
+
         _portfolio_cache = {
             "id": oid,
             "balance": fields.get("balance", "0"),
@@ -150,27 +150,29 @@ class SuiClient:
             "timestamp": time.time(),
         }
         _cache_timestamp = time.time()
-        logger.info(f" Portfolio state synced: balance={fields.get('balance')}, trades={fields.get('trade_count')}")
+        logger.info(
+            f" Portfolio state synced: balance={fields.get('balance')}, trades={fields.get('trade_count')}"
+        )
         return _portfolio_cache
 
     def get_cached_portfolio_state(self, refresh_if_stale: bool = True) -> Optional[Dict[str, Any]]:
         """
         Return cached portfolio state. If refresh_if_stale=True and cache is >TTL old,
         fetch fresh from RPC.
-        
+
         Use this to avoid excessive RPC calls between trades.
         """
         global _portfolio_cache, _cache_timestamp
-        
+
         if _portfolio_cache is None:
             if refresh_if_stale:
                 return self.refresh_portfolio_state()
             return None
-        
+
         age_s = time.time() - _cache_timestamp
         if refresh_if_stale and age_s > CACHE_TTL_S:
             return self.refresh_portfolio_state()
-        
+
         return _portfolio_cache
 
     # ----- Oracle Price Sync (Slippage Protection) -----
@@ -183,14 +185,14 @@ class SuiClient:
     ) -> int:
         """
         Given an expected off-chain price, calculate min_output with slippage protection.
-        
+
         min_output = amount * (expected_price * (1 - slippage_bps / 10000))
-        
+
         Args:
             amount: Input amount (e.g., SUI to swap)
             expected_price: Expected price from off-chain oracle (e.g., CoinGecko)
             slippage_tolerance_bps: Max acceptable slippage in BPS (default: MAX_SLIPPAGE_BPS)
-        
+
         Returns:
             min_output: Minimum output amount for on-chain validation
         """
@@ -227,14 +229,14 @@ class SuiClient:
     def get_wallet_balances(self, wallet_address: str) -> Dict[str, float]:
         """
         Fetch all coin balances for a wallet address.
-        
+
         Returns a dict mapping coin symbol -> balance in human-readable units.
         Example: {"SUI": 125.5, "USDC": 1000.0}
         """
         try:
             result = self._call("suix_getAllBalances", [wallet_address])
             balances = {}
-            
+
             # Known coin type mappings (Sui Devnet/Testnet)
             COIN_TYPE_MAP = {
                 "0x2::sui::SUI": "SUI",
@@ -243,28 +245,28 @@ class SuiClient:
                 "0xaf8cd5edc19c4512f4259f0bee101a40d41ebed738ade5874359610ef8eeced5::coin::COIN": "WETH",
                 "0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN": "WBTC",
             }
-            
+
             for coin in result:
                 coin_type = coin.get("coinType", "")
                 total_balance = int(coin.get("totalBalance", "0"))
-                
+
                 # Map to known symbol or extract from type
                 symbol = COIN_TYPE_MAP.get(coin_type)
                 if not symbol:
                     # Try to extract symbol from type string (last part before ::COIN)
                     parts = coin_type.split("::")
                     symbol = parts[-1] if parts else "UNKNOWN"
-                
+
                 # Convert from MIST (9 decimals for SUI, 6 for stablecoins)
                 decimals = 9 if symbol == "SUI" else 6
-                human_balance = total_balance / (10 ** decimals)
-                
+                human_balance = total_balance / (10**decimals)
+
                 if human_balance > 0.0001:  # Filter dust
                     balances[symbol] = round(human_balance, 4)
-            
+
             logger.info(f"Wallet {wallet_address[:10]}... balances: {balances}")
             return balances
-            
+
         except Exception as e:
             logger.warning(f"Failed to fetch wallet balances: {e}")
             return {}
@@ -272,14 +274,14 @@ class SuiClient:
     def get_wallet_portfolio_summary(self, wallet_address: str) -> Dict[str, Any]:
         """
         Get a comprehensive portfolio summary for a wallet.
-        
+
         Returns:
             - holdings: Dict of symbol -> balance
             - total_value_usd: Estimated USD value (requires price feed)
             - allocation_pct: Current % allocation per asset
         """
         balances = self.get_wallet_balances(wallet_address)
-        
+
         if not balances:
             return {
                 "holdings": {},
@@ -287,7 +289,7 @@ class SuiClient:
                 "allocation_pct": {},
                 "is_empty": True,
             }
-        
+
         # Rough USD price estimates (in production, fetch from CoinGecko)
         PRICE_ESTIMATES = {
             "SUI": 1.50,
@@ -298,7 +300,7 @@ class SuiClient:
             "ETH": 3200.0,
             "BTC": 95000.0,
         }
-        
+
         total_usd = 0.0
         values = {}
         for sym, bal in balances.items():
@@ -306,12 +308,12 @@ class SuiClient:
             val = bal * price
             values[sym] = val
             total_usd += val
-        
+
         allocation = {}
         if total_usd > 0:
             for sym, val in values.items():
                 allocation[sym] = round((val / total_usd) * 100, 1)
-        
+
         return {
             "holdings": balances,
             "total_value_usd": round(total_usd, 2),
@@ -438,7 +440,7 @@ class SuiTransactor:
                 events = tx_data.get("events", [])
 
                 logger.info(f" Trade executed on-chain: {digest} ({elapsed:.2f}s)")
-                
+
                 # ── STATE RECONCILIATION [NEW] ──
                 # Immediately refresh portfolio state to avoid stale state bugs
                 try:
@@ -446,7 +448,7 @@ class SuiTransactor:
                     logger.info(" Portfolio state synced after trade")
                 except Exception as e:
                     logger.warning(f"  State sync failed: {e} (continuing)")
-                
+
                 return TxResult(
                     success=True,
                     digest=digest,

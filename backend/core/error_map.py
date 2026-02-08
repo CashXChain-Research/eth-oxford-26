@@ -226,7 +226,9 @@ def parse_abort_error(error: Any) -> ParsedError:
                 is_move_abort=True,
                 code=code,
                 mapped=mapped,
-                frontend_message=(mapped.frontend_message if mapped else f" Unknown error (code {code})"),
+                frontend_message=(
+                    mapped.frontend_message if mapped else f" Unknown error (code {code})"
+                ),
                 raw_error=raw,
             )
 
