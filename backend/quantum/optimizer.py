@@ -79,7 +79,7 @@ class QUBOConfig:
     lambda_return: float = 1.0  # weight on returns
     lambda_risk: float = 0.5  # weight on risk (covariance)
     lambda_budget: float = 2.0  # penalty for budget constraint
-    target_assets: int = 3  # how many assets to pick (budget)
+    target_assets: int = 5  # how many assets to pick (budget)
     num_reads: int = 200  # SA / QPU samples
     use_qpu: bool = False  # use real D-Wave QPU
 
@@ -310,6 +310,46 @@ class PortfolioQUBO:
 
         t0 = time.perf_counter()
 
+        # ── Fast path: target == ALL assets → skip binary selection,
+        #    go straight to continuous weight optimization on full universe.
+        if self.cfg.target_assets >= self.n:
+            solver_name = "FullUniverse+MeanVariance"
+            all_indices = list(range(self.n))
+            allocation = {a.symbol: 1 for a in self.assets}
+            weights, exp_ret, exp_risk = self._optimize_continuous_weights(all_indices)
+            elapsed = time.perf_counter() - t0
+            energy = 0.0  # no QUBO energy when skipping binary step
+
+            logger.info(
+                f"Full-universe solve in {elapsed:.3f}s: "
+                f"weights={', '.join(f'{s}={w:.1%}' for s, w in weights.items())}"
+            )
+
+            feasible = True
+            reason = ""
+            for i in all_indices:
+                w_i = weights[self.assets[i].symbol]
+                if w_i > self.assets[i].max_weight:
+                    feasible = False
+                    reason = (
+                        f"{self.assets[i].symbol} weight {w_i:.2%} > "
+                        f"max {self.assets[i].max_weight:.2%}"
+                    )
+                    break
+
+            return OptimizationResult(
+                allocation=allocation,
+                energy=energy,
+                weights=weights,
+                expected_return=exp_ret,
+                expected_risk=exp_risk,
+                solver_time_s=elapsed,
+                solver_used=solver_name,
+                feasible=feasible,
+                reason=reason,
+            )
+
+        # ── Standard path: binary QUBO asset selection ──
         if self.cfg.use_qpu and HAS_DWAVE_QPU:
             solver_name = "DWave-QPU"
             sampler = EmbeddingComposite(DWaveSampler())
