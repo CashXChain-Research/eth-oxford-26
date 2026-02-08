@@ -161,21 +161,21 @@ export default function Portfolio({ address, wallet, network = "testnet", demo =
   }, [entries]);
 
   return (
-    <div style={{ marginTop: 12, padding: 12, border: '1px solid #eee', borderRadius: 8 }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Live Portfolio</div>
+    <div style={{ marginTop: 12, padding: 12, border: '1px solid #1f2937', borderRadius: 8, background: '#0f172a' }}>
+      <div style={{ fontWeight: 600, marginBottom: 8, color: '#e5e7eb' }}>Live Portfolio</div>
       {totalFiat != null && (
-        <div style={{ marginBottom: 8, color: '#0b74de', fontWeight: 600 }}>Total (USD): ${totalFiat.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+        <div style={{ marginBottom: 8, color: '#60a5fa', fontWeight: 600 }}>Total (USD): ${totalFiat.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
       )}
-      {!address && <div style={{ color: '#666' }}>Connect a wallet to view on-chain portfolio.</div>}
-      {address && loading && <div style={{ color: '#666' }}>Loading portfolio…</div>}
-      {address && error && <div style={{ color: 'crimson' }}>Error: {error}</div>}
-      {address && !loading && entries && entries.length === 0 && <div style={{ color: '#666' }}>No coin-like objects found (or still loading).</div>}
+      {!address && <div style={{ color: '#6b7280' }}>Connect a wallet to view on-chain portfolio.</div>}
+      {address && loading && <div style={{ color: '#6b7280' }}>Loading portfolio...</div>}
+      {address && error && <div style={{ color: '#fca5a5' }}>Error: {error}</div>}
+      {address && !loading && entries && entries.length === 0 && <div style={{ color: '#6b7280' }}>No coin-like objects found (or still loading).</div>}
       {entries && entries.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {entries.map((e) => (
             <div key={e.objectId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <div style={{ color: '#111' }}>{e.coinType}</div>
-              <div style={{ color: '#333', fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ color: '#d1d5db' }}>{e.coinType}</div>
+              <div style={{ color: '#9ca3af', fontVariantNumeric: 'tabular-nums', fontFamily: 'monospace' }}>
                 {typeof e.balance === 'number' ? e.balance.toLocaleString(undefined, { maximumFractionDigits: 6 }) : e.balance}
               </div>
             </div>

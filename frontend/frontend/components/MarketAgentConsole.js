@@ -50,39 +50,39 @@ export default function MarketAgentConsole() {
   }
 
   return (
-    <div style={{ marginTop: 18, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.95)', color: '#000' }}>
+    <div style={{ marginTop: 0, padding: 16, borderRadius: 10, background: '#111827', border: '1px solid #1f2937', color: '#e5e7eb' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontWeight: 700 }}>Market Quantum Execution — Agent Console</div>
-        <div style={{ fontSize: 12, color: '#666' }}>Agent: {agentName}</div>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>Market Quantum Execution — Agent Console</div>
+        <div style={{ fontSize: 12, color: '#6b7280' }}>Agent: {agentName}</div>
       </div>
 
       <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-        <button onClick={() => quickPreset('Simulate market buy of 100 SUI at market price; output steps and estimated cost')} style={{ padding: '6px 8px', borderRadius: 6 }}>Buy 100 SUI</button>
-        <button onClick={() => quickPreset('Simulate market sell of 0.5 BTC wrapped; show slippage and gas estimate')} style={{ padding: '6px 8px', borderRadius: 6 }}>Sell 0.5 BTC</button>
-        <button onClick={() => quickPreset('Provide a risk assessment for executing a 10k USDC swap on Sui testnet with available liquidity')} style={{ padding: '6px 8px', borderRadius: 6 }}>Risk</button>
+        <button onClick={() => quickPreset('Simulate market buy of 100 SUI at market price; output steps and estimated cost')} style={{ padding: '6px 8px', borderRadius: 6, background: '#1f2937', border: '1px solid #374151', color: '#9ca3af', fontSize: 12 }}>Buy 100 SUI</button>
+        <button onClick={() => quickPreset('Simulate market sell of 0.5 BTC wrapped; show slippage and gas estimate')} style={{ padding: '6px 8px', borderRadius: 6, background: '#1f2937', border: '1px solid #374151', color: '#9ca3af', fontSize: 12 }}>Sell 0.5 BTC</button>
+        <button onClick={() => quickPreset('Provide a risk assessment for executing a 10k USDC swap on Sui testnet with available liquidity')} style={{ padding: '6px 8px', borderRadius: 6, background: '#1f2937', border: '1px solid #374151', color: '#9ca3af', fontSize: 12 }}>Risk</button>
       </div>
 
       <div style={{ marginTop: 10 }}>
-        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Type a market execution or strategy prompt..." style={{ width: '100%', minHeight: 72, padding: 8 }} />
+        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Type a market execution or strategy prompt..." style={{ width: '100%', minHeight: 72, padding: 8, background: '#1f2937', border: '1px solid #374151', borderRadius: 6, color: '#e5e7eb', resize: 'vertical' }} />
         <div style={{ marginTop: 8, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={() => { setPrompt(''); setMessages([]); }} style={{ padding: '6px 10px', borderRadius: 6, background: '#9ca3af', color: '#fff', border: 'none' }}>Clear</button>
-          <button onClick={send} disabled={loading} style={{ padding: '6px 10px', borderRadius: 6, background: '#0b74de', color: '#fff', border: 'none' }}>{loading ? 'Sending…' : 'Send'}</button>
+          <button onClick={() => { setPrompt(''); setMessages([]); }} style={{ padding: '6px 10px', borderRadius: 6, background: '#374151', color: '#9ca3af', border: 'none', fontSize: 13 }}>Clear</button>
+          <button onClick={send} disabled={loading} style={{ padding: '6px 10px', borderRadius: 6, background: loading ? '#374151' : '#2563eb', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13 }}>{loading ? 'Sending...' : 'Send'}</button>
         </div>
       </div>
 
-      <div style={{ marginTop: 12, maxHeight: 220, overflow: 'auto', borderTop: '1px solid #eee', paddingTop: 8 }}>
+      <div style={{ marginTop: 12, maxHeight: 220, overflow: 'auto', borderTop: '1px solid #1f2937', paddingTop: 8 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: m.role === 'user' ? '#111' : '#0b74de', fontWeight: 600 }}>{m.role === 'user' ? 'You' : agentName}</div>
+            <div style={{ fontSize: 12, color: m.role === 'user' ? '#d1d5db' : '#60a5fa', fontWeight: 600 }}>{m.role === 'user' ? 'You' : agentName}</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ whiteSpace: 'pre-wrap', background: m.role === 'user' ? '#f8fafc' : '#eef2ff', padding: 8, borderRadius: 6 }}>{m.role === 'agent' && m.fullText && !m.expanded ? (m.text || m.fullText.slice(0, 200) + '...') : (m.fullText || m.text)}</div>
+                <div style={{ whiteSpace: 'pre-wrap', background: m.role === 'user' ? '#1f2937' : '#0f172a', padding: 8, borderRadius: 6, fontSize: 13, color: '#d1d5db' }}>{m.role === 'agent' && m.fullText && !m.expanded ? (m.text || m.fullText.slice(0, 200) + '...') : (m.fullText || m.text)}</div>
               </div>
               {m.role === 'agent' && m.fullText && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <button onClick={() => {
                     setMessages(ms => ms.map((mm, idx) => idx === i ? { ...mm, expanded: !mm.expanded } : mm));
-                  }} style={{ padding: '6px 8px', borderRadius: 6, background: '#e6edf3', border: 'none', cursor: 'pointer' }}>{m.expanded ? 'Show less' : 'Show more'}</button>
+                  }} style={{ padding: '6px 8px', borderRadius: 6, background: '#1f2937', border: '1px solid #374151', color: '#9ca3af', cursor: 'pointer', fontSize: 12 }}>{m.expanded ? 'Less' : 'More'}</button>
                 </div>
               )}
             </div>

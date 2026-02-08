@@ -96,49 +96,49 @@ export default function SuiEscrow({ onChainEvent }) {
   }
 
   return (
-    <div style={{ marginTop: 16, padding: 12, background: "rgba(255,255,255,0.95)", borderRadius: 8, color: "#000" }}>
-      <h3 style={{ marginTop: 0 }}>Sui Escrow</h3>
+    <div style={{ marginTop: 0, padding: 16, background: "#111827", borderRadius: 10, border: "1px solid #1f2937", color: "#e5e7eb" }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Sui Escrow</div>
       <WalletConnector onConnect={handleWalletConnect} />
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8, marginTop: 10 }}>
         <input
           value={payer}
           onChange={(e) => setPayer(e.target.value)}
           placeholder="Payer"
-          style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
+          style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #374151", background: "#1f2937", color: "#e5e7eb" }}
         />
         <input
           value={payee}
           onChange={(e) => setPayee(e.target.value)}
           placeholder="Payee"
-          style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
+          style={{ flex: 1, padding: 8, borderRadius: 6, border: "1px solid #374151", background: "#1f2937", color: "#e5e7eb" }}
         />
         <input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="Amount"
-          style={{ width: 120, padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
+          style={{ width: 120, padding: 8, borderRadius: 6, border: "1px solid #374151", background: "#1f2937", color: "#e5e7eb" }}
         />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-        <button onClick={createEscrow} style={{ padding: "8px 12px", borderRadius: 6, background: "#0b74de", color: "#fff", border: "none" }}>
+        <button onClick={createEscrow} style={{ padding: "8px 12px", borderRadius: 6, background: "#1e3a5f", color: "#93c5fd", border: "none", fontWeight: 600 }}>
           Create Escrow
         </button>
-        <button onClick={fundEscrow} style={{ padding: "8px 12px", borderRadius: 6, background: "#0a9a7b", color: "#fff", border: "none" }}>
+        <button onClick={fundEscrow} style={{ padding: "8px 12px", borderRadius: 6, background: "#065f46", color: "#6ee7b7", border: "none", fontWeight: 600 }}>
           Fund Escrow
         </button>
-        <button onClick={releaseEscrow} style={{ padding: "8px 12px", borderRadius: 6, background: "#d93b3b", color: "#fff", border: "none" }}>
+        <button onClick={releaseEscrow} style={{ padding: "8px 12px", borderRadius: 6, background: "#7f1d1d", color: "#fca5a5", border: "none", fontWeight: 600 }}>
           Release Escrow
         </button>
       </div>
 
-      <div style={{ fontSize: 13, color: "#000" }}>
-        <strong>Status:</strong>{' '}
-        {escrowState ? `${escrowState.amount} ${escrowState.funded ? '(funded)' : '(not funded)'} — ${escrowState.payer} → ${escrowState.payee}` : 'No escrow'}
+      <div style={{ fontSize: 13, color: "#9ca3af" }}>
+        <strong style={{ color: "#d1d5db" }}>Status:</strong>{' '}
+        {escrowState ? `${escrowState.amount} ${escrowState.funded ? '(funded)' : '(not funded)'} -- ${escrowState.payer} -> ${escrowState.payee}` : 'No escrow'}
       </div>
 
-      <div style={{ marginTop: 10, maxHeight: 120, overflow: "auto", background: "#fff", padding: 8, borderRadius: 6, border: "1px solid #eee", color: "#000" }}>
-        {log.length === 0 ? <div style={{ color: '#000' }}>Log is empty.</div> : log.map((l, i) => <div key={i} style={{ fontSize: 12 }}>{l}</div>)}
+      <div style={{ marginTop: 10, maxHeight: 120, overflow: "auto", background: "#0f172a", padding: 8, borderRadius: 6, border: "1px solid #1f2937", fontFamily: "monospace" }}>
+        {log.length === 0 ? <div style={{ color: '#4b5563', fontSize: 12 }}>Log is empty.</div> : log.map((l, i) => <div key={i} style={{ fontSize: 12, color: '#94a3b8' }}>{l}</div>)}
       </div>
     </div>
   );

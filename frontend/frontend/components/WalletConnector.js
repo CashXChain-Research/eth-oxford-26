@@ -137,33 +137,33 @@ export default function WalletConnector({ onConnect }) {
   }
 
   return (
-    <div style={{ marginBottom: 10 }}>
+    <div style={{ marginBottom: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ fontSize: 13, color: '#222' }}>
+        <div style={{ fontSize: 13, color: '#9ca3af' }}>
           Wallet: {connected ? (address || 'connected') : 'not connected'}
-          {auth ? (<> — Logged in</>) : connected ? (<> — Not logged in</>) : null}
+          {auth ? (<> — <span style={{ color: '#6ee7b7' }}>Logged in</span></>) : connected ? (<> — <span style={{ color: '#fcd34d' }}>Not logged in</span></>) : null}
         </div>
         {!connected ? (
-          <button onClick={connect} disabled={signing} style={{ padding: '6px 10px', borderRadius: 6, background: signing ? '#94a3b8' : '#0b74de', color: '#fff', border: 'none' }}>{signing ? 'Connecting…' : 'Connect'}</button>
+          <button onClick={connect} disabled={signing} style={{ padding: '6px 10px', borderRadius: 6, background: signing ? '#374151' : '#2563eb', color: '#fff', border: 'none', fontSize: 13 }}>{signing ? 'Connecting...' : 'Connect'}</button>
         ) : (
           <>
             {!auth && (
-              <button onClick={() => login()} disabled={signing} style={{ padding: '6px 10px', borderRadius: 6, background: signing ? '#94a3b8' : '#10b981', color: '#fff', border: 'none' }}>{signing ? 'Signing…' : 'Sign in'}</button>
+              <button onClick={() => login()} disabled={signing} style={{ padding: '6px 10px', borderRadius: 6, background: signing ? '#374151' : '#065f46', color: '#6ee7b7', border: 'none', fontSize: 13 }}>{signing ? 'Signing...' : 'Sign in'}</button>
             )}
-            <button onClick={disconnect} style={{ padding: '6px 10px', borderRadius: 6, background: '#d93b3b', color: '#fff', border: 'none' }}>Disconnect</button>
+            <button onClick={disconnect} style={{ padding: '6px 10px', borderRadius: 6, background: '#7f1d1d', color: '#fca5a5', border: 'none', fontSize: 13 }}>Disconnect</button>
           </>
         )}
       </div>
 
       {auth && (
-        <div style={{ marginTop: 8, fontSize: 12, color: '#444' }}>
-          <div>Address: {auth.address}</div>
-          <div>Signature: {auth.signature ? (<span style={{ wordBreak: 'break-all' }}>{auth.signature}</span>) : 'none (demo)'}</div>
+        <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>
+          <div>Address: <span style={{ fontFamily: 'monospace', color: '#9ca3af' }}>{auth.address}</span></div>
+          <div>Signature: {auth.signature ? (<span style={{ wordBreak: 'break-all', fontFamily: 'monospace', color: '#9ca3af' }}>{auth.signature}</span>) : <span style={{ color: '#4b5563' }}>none (demo)</span>}</div>
         </div>
       )}
 
       {serverAuth && (
-        <div style={{ marginTop: 8, fontSize: 12, color: serverAuth.error ? 'crimson' : '#0b74de' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: serverAuth.error ? '#fca5a5' : '#60a5fa' }}>
           {serverAuth.error ? `Server verify error: ${serverAuth.error}` : `Server: ${serverAuth.message || JSON.stringify(serverAuth)}`}
         </div>
       )}
@@ -171,12 +171,12 @@ export default function WalletConnector({ onConnect }) {
       <div style={{ marginTop: 10 }}>
         {!connected && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setDemo(true)} style={{ padding: '6px 10px', borderRadius: 6, background: '#6b7280', color: '#fff', border: 'none' }}>View demo portfolio</button>
+            <button onClick={() => setDemo(true)} style={{ padding: '6px 10px', borderRadius: 6, background: '#374151', color: '#9ca3af', border: 'none', fontSize: 13 }}>View demo portfolio</button>
           </div>
         )}
         {connected && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setDemo((s) => !s)} style={{ padding: '6px 10px', borderRadius: 6, background: '#f59e0b', color: '#fff', border: 'none' }}>{demo ? 'Hide demo' : 'Show demo'}</button>
+            <button onClick={() => setDemo((s) => !s)} style={{ padding: '6px 10px', borderRadius: 6, background: '#78350f', color: '#fcd34d', border: 'none', fontSize: 13 }}>{demo ? 'Hide demo' : 'Show demo'}</button>
           </div>
         )}
       </div>

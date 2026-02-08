@@ -131,8 +131,7 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
 
   // Johann has been moved to the FAQ page; this component now exposes Tom only.
 
-  // If bottomInputs is true, we render the messages area and place inputs fixed
-  // Ensure Tom and Johann have reminders of their own names so they "remember"
+  // Ensure Tom has a reminder of his name on mount
   useEffect(() => {
     setMessages((m) => {
       const hasTomReminder = m.some((x) => x.from === 'Tom' && /Tom/i.test(x.text));
@@ -140,52 +139,14 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
       if (!hasTomReminder) additions.push({ from: 'Tom', text: 'Reminder: My name is Tom.' });
       return additions.length ? [...m, ...additions] : m;
     });
-    // run only on mount
   }, []);
-
-  if (bottomInputs) {
-    return (
-      <div style={{ position: "relative", width: 720, height: 260, margin: "0 auto", color: "#000" }}>
-        <div style={{ padding: 12, height: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.95)", borderRadius: 8 }}>
-          <h3 style={{ textAlign: "center", marginTop: 0 }}>AI Agents Demo</h3>
-          <div ref={messagesContainerRef} style={{ minHeight: 140, maxHeight: 140, overflow: 'auto', paddingRight: 8, paddingBottom: 80 }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{ margin: "6px 0", color: "#000" }}>
-                <strong>{m.from}:</strong> <span>{m.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ position: "absolute", left: 12, right: 12, bottom: 12, display: "flex", gap: 12, zIndex: 30, background: 'transparent' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>To Tom (AI):</label>
-            <div style={{ display: "flex", gap: 8, position: 'relative', zIndex: 40, background: '#fff', padding: 8, borderRadius: 8 }}>
-              <input
-                value={inputTom}
-                onChange={(e) => setInputTom(e.target.value)}
-                placeholder="Message to Tom (AI)"
-                style={{ flex: 1, padding: 12, border: "2px solid #888", borderRadius: 8, boxShadow: "0 2px 6px rgba(0,0,0,0.12)", background: '#fff' }}
-              />
-              <button onClick={sendToTom} disabled={loadingTom} style={{ padding: "10px 14px", borderRadius: 8, background: loadingTom ? "#666" : "#111", color: "#fff", border: "none" }}>
-                {loadingTom ? 'Sending...' : 'Send'}
-              </button>
-            </div>
-            <div style={{ fontSize: 12, color: '#333', marginTop: 6 }}>Uses AI endpoint: https://cashxchain-ai-v1.cashxchain.workers.dev/</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // auto-scroll messages container to bottom when messages change
   useEffect(() => {
     try {
       const el = messagesContainerRef && messagesContainerRef.current;
       if (el) {
-        // scroll so the bottom is visible plus extra 30px beyond the chat length
         const target = Math.max(0, el.scrollHeight - el.clientHeight + 30);
-        // clamp target to scrollHeight
         el.scrollTop = Math.min(target, el.scrollHeight);
       }
     } catch (e) {
@@ -197,14 +158,12 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
   useEffect(() => {
     try {
       if (!chainEvent) return;
-      // ignore if same event already handled
       if (lastChainEventRef.current && lastChainEventRef.current.timestamp === chainEvent.timestamp) return;
       lastChainEventRef.current = chainEvent;
 
       const summary = `On-chain Event: ${chainEvent.type} — ${chainEvent.amount || ''} ${chainEvent.payer || ''} → ${chainEvent.payee || ''} (status: ${chainEvent.status})`;
       setMessages((m) => [...m, { from: 'System', text: summary }]);
 
-      // Ask Tom to comment briefly on the event
       (async () => {
         try {
           const prompt = `AgentName: Tom\nPersona: ${TOM_PERSONA_EXPLICIT}\nDistinctness: Do NOT imitate or copy other site agents (e.g. Johann). Provide a brief, technical comment in 1-2 sentences. Return only the assistant text without leading 'Tom:'.\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata.\n\nSiteContext: ${SITE_SUMMARY}\n\nOn-chain event: ${summary}\n\nInstruction: Only reveal site authorship when explicitly asked.`;
@@ -255,29 +214,58 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
     }
   }, [chainEvent]);
 
+  if (bottomInputs) {
+    return (
+      <div style={{ position: "relative", width: "100%", minHeight: 260, color: "#e5e7eb" }}>
+        <div style={{ padding: 12, minHeight: 260, boxSizing: "border-box", background: "#111827", borderRadius: 10, border: "1px solid #1f2937" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>AI Agent — Tom</div>
+          <div ref={messagesContainerRef} style={{ minHeight: 100, maxHeight: 140, overflow: 'auto', paddingRight: 8, paddingBottom: 60 }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{ margin: "6px 0" }}>
+                <strong style={{ color: m.from === 'Tom' ? '#60a5fa' : '#d1d5db' }}>{m.from}:</strong>{' '}
+                <span style={{ color: "#d1d5db" }}>{m.text}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <input
+              value={inputTom}
+              onChange={(e) => setInputTom(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToTom(); } }}
+              placeholder="Message to Tom..."
+              style={{ flex: 1, padding: 10, border: "1px solid #374151", borderRadius: 6, background: '#1f2937', color: '#e5e7eb' }}
+            />
+            <button onClick={sendToTom} disabled={loadingTom} style={{ padding: "10px 16px", borderRadius: 6, background: loadingTom ? "#374151" : "#2563eb", color: "#fff", border: "none", fontWeight: 600 }}>
+              {loadingTom ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ maxWidth: 720, margin: "40px auto", padding: 20, border: "1px solid #eee", borderRadius: 8, color: "#000" }}>
-      <h2 style={{ textAlign: "center" }}>AI Agents Demo</h2>
-      <div ref={messagesContainerRef} style={{ minHeight: 140, maxHeight: 220, padding: 10, background: "#fafafa", borderRadius: 6, color: "#000", overflow: 'auto' }}>
+    <div style={{ padding: 16, background: "#111827", borderRadius: 10, border: "1px solid #1f2937", color: "#e5e7eb" }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>AI Agent — Tom</div>
+      <div ref={messagesContainerRef} style={{ minHeight: 140, maxHeight: 220, padding: 10, background: "#0f172a", borderRadius: 6, overflow: 'auto' }}>
         {messages.map((m, i) => (
-          <div key={i} style={{ margin: "6px 0", color: "#000" }}>
-            <strong>{m.from}:</strong> <span>{m.text}</span>
+          <div key={i} style={{ margin: "6px 0" }}>
+            <strong style={{ color: m.from === 'Tom' ? '#60a5fa' : m.from === 'System' ? '#fbbf24' : '#d1d5db' }}>{m.from}:</strong>{' '}
+            <span style={{ color: "#d1d5db" }}>{m.text}</span>
           </div>
         ))}
       </div>
-      <div style={{ display: "block", marginTop: 12 }}>
-        <div>
-          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>To Tom:</label>
-          <input
-            value={inputTom}
-            onChange={(e) => setInputTom(e.target.value)}
-            placeholder="Message to Tom"
-            style={{ width: "100%", padding: 12, border: "1px solid #ccc", borderRadius: 6, fontSize: 15, background: "#fff", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.03)" }}
-          />
-          <button onClick={sendToTom} style={{ marginTop: 8, padding: "10px 14px", borderRadius: 6, background: "#111", color: "#fff", border: "none" }}>
-            Send to Tom
-          </button>
-        </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <input
+          value={inputTom}
+          onChange={(e) => setInputTom(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToTom(); } }}
+          placeholder="Message to Tom..."
+          style={{ flex: 1, padding: 10, border: "1px solid #374151", borderRadius: 6, fontSize: 14, background: "#1f2937", color: "#e5e7eb" }}
+        />
+        <button onClick={sendToTom} disabled={loadingTom} style={{ padding: "10px 16px", borderRadius: 6, background: loadingTom ? "#374151" : "#2563eb", color: "#fff", border: "none", fontWeight: 600 }}>
+          {loadingTom ? 'Sending...' : 'Send'}
+        </button>
       </div>
     </div>
   );
