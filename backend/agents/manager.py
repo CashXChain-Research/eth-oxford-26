@@ -380,8 +380,8 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
         state.status = "error"
         return state_to_dict(state)
 
-    # Adaptive target based on risk tolerance
-    target = max(2, min(len(state.assets), int(len(state.assets) * state.risk_tolerance) + 1))
+    # Use ALL assets — the continuous weight optimizer handles diversification
+    target = len(state.assets)
 
     cfg = QUBOConfig(
         lambda_return=1.0,

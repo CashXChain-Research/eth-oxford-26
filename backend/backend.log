@@ -482,3 +482,98 @@ INFO:     127.0.0.1:54510 - "GET /health HTTP/1.1" 200 OK
 12:44:03 [api] INFO WebSocket client disconnected (0 remaining)
 INFO:     connection closed
 INFO:     connection closed
+INFO:     127.0.0.1:37058 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37074 - "WebSocket /ws/logs" [accepted]
+12:55:55 [api] INFO WebSocket client connected (1 total)
+INFO:     connection open
+INFO:     127.0.0.1:37058 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37076 - "WebSocket /ws/logs" [accepted]
+12:55:55 [api] INFO WebSocket client connected (2 total)
+INFO:     connection open
+12:55:55 [api] INFO WebSocket client disconnected (1 remaining)
+INFO:     connection closed
+INFO:     127.0.0.1:37058 - "GET /benchmark HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37058 - "GET /benchmark HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37088 - "WebSocket /ws/logs" [accepted]
+12:55:58 [api] INFO WebSocket client connected (2 total)
+INFO:     connection open
+INFO:     127.0.0.1:46558 - "OPTIONS /optimize HTTP/1.1" 200 OK
+12:56:05 [api] INFO Optimize request: risk=0.5, user=0x1b6d04df5ca768aa687e311518c4bcb3f7d0ad365d659bc1117d09fe426148db
+12:56:05 [agents.manager] INFO ============================================================
+12:56:05 [agents.manager] INFO STARTING AGENT PIPELINE
+12:56:05 [agents.manager] INFO ============================================================
+12:56:05 [agents.manager] INFO [MarketAgent] Collecting market intelligence …
+12:56:06 [httpx] INFO HTTP Request: POST https://fullnode.devnet.sui.io "HTTP/1.1 200 OK"
+12:56:06 [blockchain.client] INFO Wallet 0x1b6d04df... balances: {'SUI': 10.0}
+12:56:06 [agents.manager] INFO [MarketAgent] 📦 Wallet analyzed: $15 in 1 assets
+12:56:06 [core.market_data] INFO Fetching 30-day price history for ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX'] …
+12:56:07 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/sui/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:56:07 [core.market_data] INFO   SUI: 31 prices, E(r)=-722.96% ann.
+12:56:08 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:56:08 [core.market_data] INFO   ETH: 31 prices, E(r)=-449.92% ann.
+12:56:09 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:56:09 [core.market_data] INFO   BTC: 31 prices, E(r)=-295.93% ann.
+12:56:10 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:56:10 [core.market_data] INFO   SOL: 31 prices, E(r)=-527.58% ann.
+12:56:11 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/avalanche-2/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:56:11 [core.market_data] INFO   AVAX: 31 prices, E(r)=-485.10% ann.
+12:56:11 [core.market_data] INFO Covariance matrix (raw): (5, 5), cond=135.0
+12:56:11 [core.market_data] INFO Calibrated returns (Black-Litterman): SUI=2.50%, ETH=18.48%, BTC=27.50%, SOL=13.94%, AVAX=16.42%
+12:56:11 [core.market_data] INFO Covariance scaled ×0.128 (avg vol 97.8% → 35.0%)
+12:56:11 [core.market_data] INFO Covariance matrix (calibrated): (5, 5), cond=135.0
+12:56:11 [agents.manager] INFO [MarketAgent]  Using REAL market data (CoinGecko 30d)
+12:56:11 [agents.manager] INFO [MarketAgent] Fetched 5 assets. Top expected return: 26.92% (sentiment adj: +0.00%)
+12:56:11 [agents.manager] INFO [MarketAgent] Assets: ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX']
+12:56:23 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:56:23 [agents.manager] INFO [ExecutionAgent] Building QUBO model …
+12:56:23 [agents.manager] INFO [ExecutionAgent] QUBO params: target=3, λ_risk=0.50, λ_ret=1.00
+12:56:23 [agents.manager] INFO [ExecutionAgent] Quantum Solver active … running simulated annealing
+12:56:23 [quantum.optimizer] INFO Built QUBO: 5 variables, 10 quadratic terms, target_assets=3
+12:56:23 [quantum.optimizer] INFO Continuous weights: ETH=30.00%, BTC=40.00%, AVAX=30.00%
+12:56:23 [quantum.optimizer] INFO Solved in 0.010s (ExactSolver): selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2176, σ=0.3211, energy=-0.1606
+12:56:23 [agents.manager] INFO [ExecutionAgent] ⏳ Quantum RNG timing jitter: 1.25s (anti-front-running, 10/16 ones)
+12:56:25 [agents.manager] INFO [ExecutionAgent] Optimization complete in 0.010s: selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2176, σ=0.3211
+12:56:37 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:56:37 [core.slippage] INFO [ETH] Impact: 0.0034% (α=0.06, β=0.55, V/ADV=0.000001) → total slip=0.5034%, min_out=$14,924.49
+12:56:37 [core.slippage] INFO [BTC] Impact: 0.0022% (α=0.05, β=0.55, V/ADV=0.000001) → total slip=0.5022%, min_out=$19,899.56
+12:56:37 [core.slippage] INFO [AVAX] Impact: 0.0263% (α=0.1, β=0.6, V/ADV=0.000050) → total slip=0.5263%, min_out=$14,921.06
+12:56:37 [core.slippage] INFO Rebalance slippage: 3 swaps, total=$50,000, avg slip=0.5106%, any_exceeds_max=False
+12:56:37 [agents.manager] INFO [ExecutionAgent] Market Impact Analysis (Almgren-Chriss):
+  ETH     order=$    15,000  V/ADV=0.000001  impact=0.0034%  min_out=$    14,924  [OK]
+  BTC     order=$    20,000  V/ADV=0.000001  impact=0.0022%  min_out=$    19,900  [OK]
+  AVAX    order=$    15,000  V/ADV=0.000050  impact=0.0263%  min_out=$    14,921  [OK]
+12:56:37 [agents.manager] INFO [RiskAgent] Running pre-flight checks …
+12:56:37 [agents.manager] INFO [RiskAgent]  Slippage OK (avg 0.5106% per swap)
+12:56:44 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:56:44 [agents.manager] INFO [RiskAgent]   PENDING APPROVAL — Estimated trade value $1,000,000 > threshold $50,000; Portfolio risk σ=0.3211 > approval threshold 0.3
+12:56:44 [agents.manager] INFO [Pipeline] Total pipeline time: 39.069s
+INFO:     127.0.0.1:46558 - "POST /optimize HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33882 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54620 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54622 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35240 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53102 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56742 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56884 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59856 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52972 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41564 - "GET /health HTTP/1.1" 200 OK
+12:58:29 [api] INFO WebSocket client disconnected (1 remaining)
+12:58:29 [api] INFO WebSocket client disconnected (0 remaining)
+INFO:     connection closed
+INFO:     connection closed
+INFO:     127.0.0.1:57640 - "WebSocket /ws/logs" [accepted]
+12:58:30 [api] INFO WebSocket client connected (1 total)
+INFO:     connection open
+12:58:30 [api] INFO WebSocket client disconnected (0 remaining)
+INFO:     connection closed
+INFO:     127.0.0.1:41564 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57656 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57672 - "WebSocket /ws/logs" [accepted]
+12:58:30 [api] INFO WebSocket client connected (1 total)
+INFO:     connection open
+INFO:     127.0.0.1:57656 - "GET /benchmark HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41564 - "GET /benchmark HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57682 - "WebSocket /ws/logs" [accepted]
+12:58:33 [api] INFO WebSocket client connected (2 total)
+INFO:     connection open
