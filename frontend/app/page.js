@@ -352,24 +352,49 @@ function QuantumVault() {
         {/* ── CTA Buttons ──────────────────────────────── */}
         <div style={{ marginBottom: 24 }}>
           {!account ? (
-            <>
-              <button
-                disabled
-                style={{
-                  width: "100%", padding: "18px 24px", borderRadius: 14, border: "none",
-                  background: "rgba(55,65,81,0.5)", color: "#6b7280",
-                  fontWeight: 700, fontSize: 16, cursor: "not-allowed",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                  <Icon name="lock" size={18} color="#6b7280" />
-                  Connect Wallet to Start
-                </span>
-              </button>
-              <p style={{ textAlign: "center", fontSize: 12, color: "#4b5563", marginTop: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, width: "100%" }}>
+                <div
+                  style={{
+                    padding: "6px",
+                    borderRadius: 16,
+                    background: "linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.25))",
+                    border: "1px solid rgba(139,92,246,0.3)",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <WalletConnector onAccountChange={setAccount} />
+                </div>
+                <button
+                  onClick={simulateDryRun}
+                  disabled={simulating || loading || !isUp}
+                  className="cta-button"
+                  style={{
+                    width: "100%", padding: "16px 20px", borderRadius: 14,
+                    border: "1px solid rgba(245,158,11,0.25)",
+                    background: simulating ? "rgba(120,80,0,0.4)" : "rgba(245,158,11,0.08)",
+                    color: "#fcd34d",
+                    fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em",
+                    cursor: simulating || loading || !isUp ? "not-allowed" : "pointer",
+                    transition: "all 0.3s",
+                    boxShadow: "0 4px 20px rgba(245,158,11,0.08)",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                    {simulating ? (
+                      <><span className="spinner" style={{ borderTopColor: "#fcd34d" }} /> Simulating...</>
+                    ) : (
+                      <>🔬 Simulate (Dry Run)</>
+                    )}
+                  </span>
+                </button>
+              </div>
+              <p style={{ textAlign: "center", fontSize: 12, color: "#4b5563", margin: 0 }}>
                 Connect your Sui wallet (Slush) to access the quantum optimizer
               </p>
-            </>
+            </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {/* Simulate (Dry Run) */}

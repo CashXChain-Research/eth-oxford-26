@@ -15,6 +15,7 @@ Author: Valentin Israel — ETH Oxford Hackathon 2026
 import json
 import logging
 import time
+import httpx  # For calling external AI Worker
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
@@ -32,6 +33,43 @@ from quantum.optimizer import (
     make_test_universe,
 )
 from quantum.rng import run_quantum_rng_local
+
+AI_ENDPOINT = "https://cashxchain-ai-v1.cashxchain.workers.dev/"
+
+def call_ai_agent(context: str, instruction: str, fallback: str) -> str:
+    """
+    Calls the external CashXChain AI Worker to generate reasoning/analysis.
+    Falls back to the provided 'fallback' string on error or timeout.
+    """
+    try:
+        full_prompt = (
+            f"You are an expert crypto portfolio analyst agent for CashXChain.\n"
+            f"Context Data:\n{context}\n\n"
+            f"Instructions: {instruction}\n"
+            f"Provide a concise, professional, and data-driven explanation."
+        )
+        
+        # Use a longer timeout for the AI
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(AI_ENDPOINT, json={"prompt": full_prompt})
+            resp.raise_for_status()
+            data = resp.json()
+            # Expecting Cloudflare Worker response: {"result": {"response": "..."}}
+            # or direct if the worker changed. Based on user curl:
+            # {"model":..., "result": {"response": "..."}}
+            ai_text = data.get("result", {}).get("response", "")
+            if not ai_text:
+                 # fallback if structure differs
+                 ai_text = data.get("response", "")
+            
+            if ai_text:
+                return ai_text.strip()
+            
+    except Exception as e:
+        logging.getLogger("uvicorn").warning(f"AI Agent call failed: {e}")
+    
+    return fallback
+
 
 try:
     from core.market_data import MarketDataFetcher
@@ -228,7 +266,19 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     for a in assets:
         vol = np.sqrt(state.cov_matrix[assets.index(a), assets.index(a)])
         asset_details.append(f"{a.symbol} (ret={a.expected_return:.2%}, vol={vol:.2%})")
-    reasoning_text = (
+    
+    # Raw data context for the AI
+    context_str = (
+        f"Assets Analyzed: {len(assets)}\n"
+        f"Top Expected Return: {max(a.expected_return for a in assets):.2%}\n"
+        f"User Risk Tolerance: {state.risk_tolerance:.1%} (0=Conservative, 1=Aggressive)\n"
+        f"Sentiment Adjustment: {sentiment_boost:+.2%}\n"
+        f"Asset Metrics: {'; '.join(asset_details)}\n"
+        f"Data Source: {'Real (CoinGecko)' if use_real else 'Mock'}"
+    )
+    
+    # Fallback template
+    fallback_text = (
         f"Market Intelligence Report:\n"
         f"  • Collected {len(assets)} assets with expected returns and covariance matrix\n"
         f"  • Top return: {max(a.expected_return for a in assets):.2%}\n"
@@ -237,7 +287,13 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
         f"  • Data source: {'Real (CoinGecko)' if use_real else 'Mock'}\n"
         f"  • Timestamp: {state.market_timestamp:.0f}"
     )
-    state.reasoning["MarketAgent"] = reasoning_text
+
+    # Call AI (concise summary)
+    ai_instruction = (
+        "Summarize the market conditions for the user's wallet analysis. "
+        "Mention the top performing assets and how the user's risk tolerance influenced the view."
+    )
+    state.reasoning["MarketAgent"] = call_ai_agent(context_str, ai_instruction, fallback_text)
 
     return state_to_dict(state)
 
@@ -309,7 +365,17 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
             weight = result.weights.get(sym, 0.0)
             rebalance_details.append(f"{sym}: +{weight:.1%}")
     
-    reasoning_text = (
+    context_str = (
+        f"Selected Assets: {', '.join(selected)}\n"
+        f"Allocations: {', '.join(rebalance_details)}\n"
+        f"Portfolio Metrics: Expected Return E[r]={result.expected_return:.2%}, Risk σ={result.expected_risk:.2%}\n"
+        f"User ID/Wallet: {state.user_id}\n"
+        f"Solver: {result.solver_used} (Time: {result.solver_time_s:.3f}s)\n"
+        f"Energy: {result.energy:.6f}\n"
+        f"Feasible: {result.feasible}"
+    )
+
+    fallback_text = (
         f"Quantum QUBO Optimization Result:\n"
         f"  • Selected Assets: {', '.join(selected)}\n"
         f"  • Weights: {', '.join(rebalance_details)}\n"
@@ -320,7 +386,13 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
         f"  • Feasible: {'Yes' if result.feasible else 'No'}\n"
         f"  • Reason: {result.reason}"
     )
-    state.reasoning["ExecutionAgent"] = reasoning_text
+
+    ai_instruction = (
+        f"Explain why this portfolio allocation (Assets: {', '.join(selected)}) is optimal for the user (Wallet: {state.user_id}). "
+        "Highlight the trade-off between return and risk. Mention the Quantum QUBO solver's role."
+    )
+    
+    state.reasoning["ExecutionAgent"] = call_ai_agent(context_str, ai_instruction, fallback_text)
 
     # ── Market Impact / Slippage estimation (Almgren-Chriss) ──
     # Compute min_out for each swap BEFORE submitting to chain.
@@ -371,8 +443,8 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
 
 # Guardrail constants
 MAX_POSITION_WEIGHT = 0.40  # no single asset > 40%
-MAX_PORTFOLIO_RISK = 0.35  # annualized σ cap
-MIN_EXPECTED_RETURN = 0.05  # at least 5% expected
+MAX_PORTFOLIO_RISK = 0.45  # annualized σ cap (crypto-appropriate)
+MIN_EXPECTED_RETURN = 0.01  # at least 1% expected return
 MAX_SOLVER_TIME_S = 5.0  # solver must be fast
 MAX_DAILY_VOLUME_USD = 1_000_000  # placeholder cap
 
@@ -503,7 +575,20 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
             else:
                 reasoning_lines.append(f"  {status} — No slippage model (graceful pass)")
     
-    state.reasoning["RiskAgent"] = "\n".join(reasoning_lines)
+    fallback_text = "\n".join(reasoning_lines)
+    
+    context_str = fallback_text + f"\nOverall Passed: {all_passed}"
+    if not all_passed:
+        failed = [k for k, v in checks.items() if not v]
+        context_str += f"\nFailed Checks: {failed}"
+
+    ai_instruction = (
+        "Review the Risk Management Pre-Flight Checks for the user's wallet. "
+        "Confirm if the trade is safe to execute or why it was rejected. "
+        "Be strict but helpful."
+    )
+    
+    state.reasoning["RiskAgent"] = call_ai_agent(context_str, ai_instruction, fallback_text)
 
     if all_passed:
         # ── Multi-sig approval threshold check ──

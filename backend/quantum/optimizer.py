@@ -121,7 +121,7 @@ class PortfolioQUBO:
         weights using mean-variance optimization on the selected sub-universe.
 
         Solves:  min  w^T Σ_sel w  -  λ * μ_sel^T w
-                 s.t. Σ w_i = 1,  0 ≤ w_i ≤ max_weight_i
+                 s.t. Σ w_i = 1,  min_w ≤ w_i ≤ max_weight_i
 
         Uses iterative quadratic solver (analytical + projection).
         Falls back to equal-weight if optimization is infeasible.
@@ -129,6 +129,7 @@ class PortfolioQUBO:
         Returns: (weights_dict, expected_return, expected_risk)
         """
         n_sel = len(selected_indices)
+        MIN_WEIGHT = 0.05  # every QUBO-selected asset gets at least 5%
 
         sub_mu = np.array([self.assets[i].expected_return for i in selected_indices])
         sub_cov = self.cov[np.ix_(selected_indices, selected_indices)]
@@ -152,6 +153,31 @@ class PortfolioQUBO:
 
         # ---- Normalize to sum=1, enforce bounds via projection ----
         w = self._project_simplex_bounded(raw_w, max_weights, n_iters=50)
+
+        # ---- Ensure QUBO-selected assets get meaningful allocation ----
+        # The tangency portfolio (Σ⁻¹μ) can be very concentrated when
+        # assets are correlated, assigning 0% to some selected assets.
+        # Since the QUBO already decided these assets should be in the
+        # portfolio, enforce a minimum weight and re-project.
+        if n_sel > 1 and np.any(w < MIN_WEIGHT):
+            # Blend with equal-weight to ensure diversification
+            equal_w = np.ones(n_sel) / n_sel
+            blended = 0.5 * w + 0.5 * equal_w
+            w = self._project_simplex_bounded(blended, max_weights, n_iters=50)
+            # Final enforcement: floor at MIN_WEIGHT, redistribute
+            if np.any(w < MIN_WEIGHT):
+                w = np.maximum(w, MIN_WEIGHT)
+                excess = w.sum() - 1.0
+                if excess > 0:
+                    # Remove excess from largest weights
+                    for _ in range(20):
+                        idx_max = np.argmax(w)
+                        reduce = min(excess, w[idx_max] - MIN_WEIGHT)
+                        w[idx_max] -= reduce
+                        excess -= reduce
+                        if abs(excess) < 1e-10:
+                            break
+                w = w / w.sum()  # safety re-normalize
 
         # ---- Compute portfolio metrics ----
         exp_ret = float(w @ sub_mu)

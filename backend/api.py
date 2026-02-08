@@ -325,7 +325,11 @@ async def optimize(req: OptimizeRequest):
 @app.get("/portfolio")
 async def portfolio():
     """Get current portfolio state from Sui + last optimization."""
-    chain_state = get_portfolio_status()
+    try:
+        chain_state = get_portfolio_status()
+    except Exception as e:
+        logger.warning(f"Could not fetch on-chain portfolio: {e}")
+        chain_state = {"status": "unavailable", "error": str(e)}
     return {
         "on_chain": chain_state,
         "last_optimization": last_result,
@@ -569,13 +573,26 @@ async def get_benchmark():
     - 100 assets: Classical 80s vs Quantum 0.9s (89x quantum faster)
     - 250 assets: Classical 1250s vs Quantum 1.05s (1190x quantum faster!)
     """
-    import json
+    import json, math
+    
+    def sanitize_floats(obj):
+        """Replace inf/nan with JSON-safe values."""
+        if isinstance(obj, float):
+            if math.isinf(obj) or math.isnan(obj):
+                return None
+            return obj
+        if isinstance(obj, dict):
+            return {k: sanitize_floats(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [sanitize_floats(v) for v in obj]
+        return obj
     
     # Read from previous benchmark run
     try:
         with open("/tmp/benchmark_results.json", "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
+            data = json.load(f)
+            return sanitize_floats(data)
+    except (FileNotFoundError, json.JSONDecodeError):
         # Fallback: return example data
         return {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
