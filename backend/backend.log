@@ -256,3 +256,229 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 12:33:48 [quantum.optimizer] INFO Solved in 0.001s (ExactSolver): selected=['BTC', 'SOL', 'AVAX'], E(r)=0.2579, σ=0.1284, energy=-0.6336
 12:33:48 [agents.manager] INFO [ExecutionAgent] ⏳ Quantum RNG timing jitter: 1.12s (anti-front-running, 9/16 ones)
 12:33:50 [agents.manager] INFO [ExecutionAgent] Optimization complete in 0.001s: selected=['BTC', 'SOL', 'AVAX'], E(r)=0.2579, σ=0.1284
+12:34:05 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:34:05 [core.slippage] INFO [BTC] Impact: 0.0015% (α=0.05, β=0.55, V/ADV=0.000000) → total slip=0.5015%, min_out=$9,949.85
+12:34:05 [core.slippage] INFO [SOL] Impact: 0.0070% (α=0.08, β=0.6, V/ADV=0.000008) → total slip=0.5070%, min_out=$19,898.60
+12:34:05 [core.slippage] INFO [AVAX] Impact: 0.0312% (α=0.1, β=0.6, V/ADV=0.000067) → total slip=0.5312%, min_out=$19,893.76
+12:34:05 [core.slippage] INFO Rebalance slippage: 3 swaps, total=$50,000, avg slip=0.5132%, any_exceeds_max=False
+12:34:05 [agents.manager] INFO [ExecutionAgent] Market Impact Analysis (Almgren-Chriss):
+  BTC     order=$    10,000  V/ADV=0.000000  impact=0.0015%  min_out=$     9,950  [OK]
+  SOL     order=$    20,000  V/ADV=0.000008  impact=0.0070%  min_out=$    19,899  [OK]
+  AVAX    order=$    20,000  V/ADV=0.000067  impact=0.0312%  min_out=$    19,894  [OK]
+12:34:05 [agents.manager] INFO [RiskAgent] Running pre-flight checks …
+12:34:05 [agents.manager] INFO [RiskAgent]  Slippage OK (avg 0.5132% per swap)
+12:34:13 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:34:13 [agents.manager] INFO [RiskAgent]   PENDING APPROVAL — Estimated trade value $1,000,000 > threshold $50,000
+12:34:13 [agents.manager] INFO [Pipeline] Total pipeline time: 45.113s
+INFO:     127.0.0.1:53222 - "POST /optimize HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53228 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39462 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39462 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53228 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54152 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46276 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34432 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33396 - "GET /health HTTP/1.1" 200 OK
+12:35:18 [api] INFO WebSocket client disconnected (1 remaining)
+12:35:18 [api] INFO WebSocket client disconnected (0 remaining)
+INFO:     connection closed
+INFO:     connection closed
+INFO:     127.0.0.1:33402 - "WebSocket /ws/logs" [accepted]
+12:35:19 [api] INFO WebSocket client connected (1 total)
+INFO:     127.0.0.1:33412 - "GET /health HTTP/1.1" 200 OK
+INFO:     connection open
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 940, in transfer_data
+    message = await self.read_message()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 1010, in read_message
+    frame = await self.read_data_frame(max_size=self.max_size)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 1087, in read_data_frame
+    frame = await self.read_frame(max_size)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 1144, in read_frame
+    frame = await Frame.read(
+            ^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/framing.py", line 70, in read
+    data = await reader(2)
+           ^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/asyncio/streams.py", line 767, in readexactly
+    raise exceptions.IncompleteReadError(incomplete, n)
+asyncio.exceptions.IncompleteReadError: 0 bytes read on a total of 2 expected bytes
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 329, in asgi_send
+    await self.send(data)  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 618, in send
+    await self.ensure_open()
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 916, in ensure_open
+    raise self.connection_closed_exc()
+websockets.exceptions.ConnectionClosedError: no close frame received or sent
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/websockets.py", line 86, in send
+    await self._send(message)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 39, in sender
+    await send(message)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 342, in asgi_send
+    raise ClientDisconnected from exc
+uvicorn.protocols.utils.ClientDisconnected
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 244, in run_asgi
+    result = await self.app(self.scope, self.asgi_receive, self.asgi_send)  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/applications.py", line 1138, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/middleware/errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/middleware/cors.py", line 79, in __call__
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/routing.py", line 364, in handle
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 147, in app
+    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 144, in app
+    await func(session)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 509, in app
+    await dependant.call(**solved_result.values)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/api.py", line 529, in websocket_logs
+    await websocket.send_json(
+    ...<5 lines>...
+    )
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/websockets.py", line 176, in send_json
+    await self.send({"type": "websocket.send", "text": text})
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/websockets.py", line 89, in send
+    raise WebSocketDisconnect(code=1006)
+starlette.websockets.WebSocketDisconnect
+INFO:     connection closed
+INFO:     127.0.0.1:33418 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33426 - "WebSocket /ws/logs" [accepted]
+12:35:19 [api] INFO WebSocket client connected (2 total)
+INFO:     connection open
+INFO:     127.0.0.1:33412 - "GET /benchmark HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33418 - "GET /benchmark HTTP/1.1" 200 OK
+12:35:22 [api] INFO Optimize request: risk=0.5, user=0x1b6d04df5ca768aa687e311518c4bcb3f7d0ad365d659bc1117d09fe426148db
+12:35:22 [agents.manager] INFO ============================================================
+12:35:22 [agents.manager] INFO STARTING AGENT PIPELINE
+12:35:22 [agents.manager] INFO ============================================================
+12:35:22 [agents.manager] INFO [MarketAgent] Collecting market intelligence …
+12:35:23 [httpx] INFO HTTP Request: POST https://fullnode.devnet.sui.io "HTTP/1.1 200 OK"
+12:35:23 [blockchain.client] INFO Wallet 0x1b6d04df... balances: {'SUI': 10.0}
+12:35:23 [agents.manager] INFO [MarketAgent] 📦 Wallet analyzed: $15 in 1 assets
+12:35:23 [core.market_data] INFO Fetching 30-day price history for ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX'] …
+12:35:24 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/sui/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:35:24 [core.market_data] INFO   SUI: 31 prices, E(r)=-723.65% ann.
+12:35:25 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:35:25 [core.market_data] INFO   ETH: 31 prices, E(r)=-453.30% ann.
+12:35:25 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:35:25 [core.market_data] INFO   BTC: 31 prices, E(r)=-298.32% ann.
+12:35:26 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:35:26 [core.market_data] INFO   SOL: 31 prices, E(r)=-533.51% ann.
+12:35:27 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/avalanche-2/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:35:27 [core.market_data] INFO   AVAX: 31 prices, E(r)=-488.41% ann.
+12:35:27 [core.market_data] INFO Covariance matrix (raw): (5, 5), cond=133.3
+12:35:27 [core.market_data] INFO Calibrated returns (Black-Litterman): SUI=2.50%, ETH=18.39%, BTC=27.50%, SOL=13.68%, AVAX=16.33%
+12:35:27 [core.market_data] INFO Covariance scaled ×0.128 (avg vol 97.8% → 35.0%)
+12:35:27 [core.market_data] INFO Covariance matrix (calibrated): (5, 5), cond=133.3
+12:35:27 [agents.manager] INFO [MarketAgent]  Using REAL market data (CoinGecko 30d)
+12:35:27 [agents.manager] INFO [MarketAgent] Fetched 5 assets. Top expected return: 27.02% (sentiment adj: +0.00%)
+12:35:27 [agents.manager] INFO [MarketAgent] Assets: ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX']
+12:35:37 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:35:37 [agents.manager] INFO [ExecutionAgent] Building QUBO model …
+12:35:37 [agents.manager] INFO [ExecutionAgent] QUBO params: target=3, λ_risk=0.50, λ_ret=1.00
+12:35:37 [agents.manager] INFO [ExecutionAgent] Quantum Solver active … running simulated annealing
+12:35:37 [quantum.optimizer] INFO Built QUBO: 5 variables, 10 quadratic terms, target_assets=3
+12:35:37 [quantum.optimizer] INFO Continuous weights: ETH=30.00%, BTC=40.00%, AVAX=30.00%
+12:35:37 [quantum.optimizer] INFO Solved in 0.005s (ExactSolver): selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2123, σ=0.3210, energy=-0.1427
+12:35:37 [agents.manager] INFO [ExecutionAgent] ⏳ Quantum RNG timing jitter: 1.12s (anti-front-running, 9/16 ones)
+12:35:38 [agents.manager] INFO [ExecutionAgent] Optimization complete in 0.005s: selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2123, σ=0.3210
+12:35:52 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:35:52 [core.slippage] INFO [ETH] Impact: 0.0034% (α=0.06, β=0.55, V/ADV=0.000001) → total slip=0.5034%, min_out=$14,924.49
+12:35:52 [core.slippage] INFO [BTC] Impact: 0.0022% (α=0.05, β=0.55, V/ADV=0.000001) → total slip=0.5022%, min_out=$19,899.56
+12:35:52 [core.slippage] INFO [AVAX] Impact: 0.0263% (α=0.1, β=0.6, V/ADV=0.000050) → total slip=0.5263%, min_out=$14,921.06
+12:35:52 [core.slippage] INFO Rebalance slippage: 3 swaps, total=$50,000, avg slip=0.5106%, any_exceeds_max=False
+12:35:52 [agents.manager] INFO [ExecutionAgent] Market Impact Analysis (Almgren-Chriss):
+  ETH     order=$    15,000  V/ADV=0.000001  impact=0.0034%  min_out=$    14,924  [OK]
+  BTC     order=$    20,000  V/ADV=0.000001  impact=0.0022%  min_out=$    19,900  [OK]
+  AVAX    order=$    15,000  V/ADV=0.000050  impact=0.0263%  min_out=$    14,921  [OK]
+12:35:52 [agents.manager] INFO [RiskAgent] Running pre-flight checks …
+12:35:52 [agents.manager] INFO [RiskAgent]  Slippage OK (avg 0.5106% per swap)
+12:35:58 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:35:58 [agents.manager] INFO [RiskAgent]   PENDING APPROVAL — Estimated trade value $1,000,000 > threshold $50,000; Portfolio risk σ=0.3210 > approval threshold 0.3
+12:35:58 [agents.manager] INFO [Pipeline] Total pipeline time: 35.926s
+INFO:     127.0.0.1:33418 - "POST /optimize HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33412 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40376 - "WebSocket /ws/logs" [accepted]
+12:35:58 [api] INFO WebSocket client connected (2 total)
+INFO:     127.0.0.1:33418 - "GET /health HTTP/1.1" 200 OK
+INFO:     connection open
+INFO:     127.0.0.1:55830 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45672 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43978 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60360 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35726 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34232 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58194 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47956 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33918 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46378 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42998 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44888 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53552 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38260 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46468 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44878 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59542 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38474 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47000 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38728 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58858 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55010 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47180 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43532 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44330 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44514 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44430 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42672 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34222 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33068 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34046 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54510 - "GET /health HTTP/1.1" 200 OK
+12:44:03 [api] INFO WebSocket client disconnected (1 remaining)
+12:44:03 [api] INFO WebSocket client disconnected (0 remaining)
+INFO:     connection closed
+INFO:     connection closed

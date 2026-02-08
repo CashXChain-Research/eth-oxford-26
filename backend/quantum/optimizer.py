@@ -191,8 +191,7 @@ class PortfolioQUBO:
         logger.info(
             f"Continuous weights: "
             + ", ".join(
-                f"{self.assets[i].symbol}={w[j]:.2%}"
-                for j, i in enumerate(selected_indices)
+                f"{self.assets[i].symbol}={w[j]:.2%}" for j, i in enumerate(selected_indices)
             )
         )
 
@@ -350,9 +349,7 @@ class PortfolioQUBO:
         # Compute portfolio metrics with CONTINUOUS weight optimization
         n_selected = len(selected_indices)
         if n_selected > 0:
-            weights, exp_ret, exp_risk = self._optimize_continuous_weights(
-                selected_indices
-            )
+            weights, exp_ret, exp_risk = self._optimize_continuous_weights(selected_indices)
         else:
             weights = {a.symbol: 0.0 for a in self.assets}
             exp_ret = 0.0

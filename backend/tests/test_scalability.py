@@ -149,12 +149,12 @@ def run_scalability_test(
         n1, n2 = sorted_counts[0], sorted_counts[-1]
         t1 = results[n1]["avg_time_ms"]
         t2 = results[n2]["avg_time_ms"]
-        
+
         # Estimate scaling: t = k * n^p
         scaling_exp = np.log(t2 / t1) / np.log(n2 / n1)
-        
+
         logger.info(f"  Estimated scaling: O(n^{scaling_exp:.2f})")
-        
+
         if scaling_exp < 2.0:
             logger.info(f"   Sub-quadratic scaling (excellent for {max_assets}+ assets)")
         elif scaling_exp < 3.0:
@@ -232,4 +232,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

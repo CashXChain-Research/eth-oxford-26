@@ -46,22 +46,24 @@ logger = logging.getLogger(__name__)
 # Calibrated for crypto markets (higher α than TradFi due to
 # thinner order books and higher volatility)
 
+
 @dataclass
 class ImpactParams:
     """Market impact model parameters per asset class."""
-    alpha: float = 0.10     # impact coefficient (10% baseline for crypto)
-    beta: float = 0.60      # impact exponent (sub-linear: sqrt-like)
+
+    alpha: float = 0.10  # impact coefficient (10% baseline for crypto)
+    beta: float = 0.60  # impact exponent (sub-linear: sqrt-like)
     safety_margin_bps: int = 50  # extra 0.5% buffer beyond estimated impact
     max_impact_pct: float = 0.05  # hard cap: reject trades with >5% impact
 
 
 # Asset-specific calibrations (crypto markets are heterogeneous)
 ASSET_IMPACT_PARAMS: Dict[str, ImpactParams] = {
-    "BTC":  ImpactParams(alpha=0.05, beta=0.55),    # deep liquidity
-    "ETH":  ImpactParams(alpha=0.06, beta=0.55),    # deep liquidity
-    "SUI":  ImpactParams(alpha=0.12, beta=0.65),    # thinner books
-    "SOL":  ImpactParams(alpha=0.08, beta=0.60),    # medium liquidity
-    "AVAX": ImpactParams(alpha=0.10, beta=0.60),    # medium liquidity
+    "BTC": ImpactParams(alpha=0.05, beta=0.55),  # deep liquidity
+    "ETH": ImpactParams(alpha=0.06, beta=0.55),  # deep liquidity
+    "SUI": ImpactParams(alpha=0.12, beta=0.65),  # thinner books
+    "SOL": ImpactParams(alpha=0.08, beta=0.60),  # medium liquidity
+    "AVAX": ImpactParams(alpha=0.10, beta=0.60),  # medium liquidity
 }
 
 DEFAULT_PARAMS = ImpactParams()
@@ -69,27 +71,28 @@ DEFAULT_PARAMS = ImpactParams()
 # ── Mock 24h volumes (USD) for demo ──────────────────
 # In production: fetch from CoinGecko /coins/{id}/market_chart
 MOCK_DAILY_VOLUMES: Dict[str, float] = {
-    "BTC":  25_000_000_000,  # $25B
-    "ETH":  12_000_000_000,  # $12B
-    "SUI":     400_000_000,  # $400M
-    "SOL":   2_500_000_000,  # $2.5B
-    "AVAX":    300_000_000,  # $300M
+    "BTC": 25_000_000_000,  # $25B
+    "ETH": 12_000_000_000,  # $12B
+    "SUI": 400_000_000,  # $400M
+    "SOL": 2_500_000_000,  # $2.5B
+    "AVAX": 300_000_000,  # $300M
 }
 
 
 @dataclass
 class SlippageEstimate:
     """Estimated slippage for a single swap."""
+
     symbol: str
     order_size_usd: float
     daily_volume_usd: float
     # Model outputs
-    volume_fraction: float   # OrderSize / DailyVolume
-    raw_impact_pct: float    # α · (fraction)^β
-    safety_margin_pct: float # additional buffer
+    volume_fraction: float  # OrderSize / DailyVolume
+    raw_impact_pct: float  # α · (fraction)^β
+    safety_margin_pct: float  # additional buffer
     total_slippage_pct: float  # raw + safety
-    min_out_usd: float       # order_size * (1 - total_slippage)
-    min_out_mist: int        # min_out in smallest on-chain unit
+    min_out_usd: float  # order_size * (1 - total_slippage)
+    min_out_mist: int  # min_out in smallest on-chain unit
     # Model params used
     alpha: float
     beta: float
@@ -127,7 +130,7 @@ def estimate_market_impact(
     fraction = order_size_usd / volume if volume > 0 else 1.0
 
     # Almgren–Chriss impact: α · (V/ADV)^β
-    raw_impact = p.alpha * (fraction ** p.beta)
+    raw_impact = p.alpha * (fraction**p.beta)
 
     # Safety margin (convert BPS to decimal)
     safety = p.safety_margin_bps / 10_000
@@ -214,10 +217,7 @@ def estimate_rebalance_slippage(
 
     # Log aggregate
     total_order = sum(e.order_size_usd for e in estimates.values())
-    avg_slip = (
-        np.mean([e.total_slippage_pct for e in estimates.values()])
-        if estimates else 0
-    )
+    avg_slip = np.mean([e.total_slippage_pct for e in estimates.values()]) if estimates else 0
     any_exceeds = any(e.exceeds_max_impact for e in estimates.values())
 
     logger.info(
@@ -299,9 +299,7 @@ def main():
                 f"min_out=${e.min_out_usd:>10,.0f}  [{status}]"
             )
 
-        total_impact_cost = sum(
-            e.order_size_usd * e.raw_impact_pct for e in estimates.values()
-        )
+        total_impact_cost = sum(e.order_size_usd * e.raw_impact_pct for e in estimates.values())
         print(f"  Total impact cost: ${total_impact_cost:,.2f}")
 
 

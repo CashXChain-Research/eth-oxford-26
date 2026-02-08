@@ -74,7 +74,9 @@ class TestAlmgrenChrissModel(unittest.TestCase):
     def test_safety_margin_included(self):
         """Total slippage should be raw impact + safety margin."""
         est = estimate_market_impact(
-            "TEST", order_size_usd=10_000, daily_volume_usd=1e9,
+            "TEST",
+            order_size_usd=10_000,
+            daily_volume_usd=1e9,
             params=ImpactParams(alpha=0.10, beta=0.60, safety_margin_bps=100),
         )
         # safety = 100 bps = 1%
@@ -84,7 +86,8 @@ class TestAlmgrenChrissModel(unittest.TestCase):
     def test_exceeds_max_impact_flag(self):
         """Very large order should trigger exceeds_max_impact."""
         est = estimate_market_impact(
-            "TEST", order_size_usd=100_000_000,
+            "TEST",
+            order_size_usd=100_000_000,
             daily_volume_usd=50_000_000,
             params=ImpactParams(alpha=0.50, beta=0.50, max_impact_pct=0.05),
         )
@@ -131,7 +134,9 @@ class TestRebalanceSlippage(unittest.TestCase):
     def test_only_selected_assets(self):
         """Only assets with allocation=1 should have estimates."""
         estimates = estimate_rebalance_slippage(
-            self.allocation, self.weights, portfolio_value_usd=50_000,
+            self.allocation,
+            self.weights,
+            portfolio_value_usd=50_000,
         )
         self.assertIn("SUI", estimates)
         self.assertIn("BTC", estimates)
@@ -140,7 +145,9 @@ class TestRebalanceSlippage(unittest.TestCase):
     def test_order_sizes_match_weights(self):
         """Order sizes should reflect weight * portfolio value."""
         estimates = estimate_rebalance_slippage(
-            self.allocation, self.weights, portfolio_value_usd=100_000,
+            self.allocation,
+            self.weights,
+            portfolio_value_usd=100_000,
         )
         self.assertAlmostEqual(estimates["SUI"].order_size_usd, 30_000, places=0)
         self.assertAlmostEqual(estimates["BTC"].order_size_usd, 25_000, places=0)
@@ -148,7 +155,9 @@ class TestRebalanceSlippage(unittest.TestCase):
     def test_build_swap_min_outputs(self):
         """build_swap_min_outputs returns valid vectors."""
         estimates = estimate_rebalance_slippage(
-            self.allocation, self.weights, portfolio_value_usd=50_000,
+            self.allocation,
+            self.weights,
+            portfolio_value_usd=50_000,
         )
         symbols, amounts, min_outputs = build_swap_min_outputs(estimates)
         self.assertEqual(len(symbols), 4)
@@ -161,7 +170,9 @@ class TestRebalanceSlippage(unittest.TestCase):
     def test_format_report(self):
         """Slippage report should contain all symbols."""
         estimates = estimate_rebalance_slippage(
-            self.allocation, self.weights, portfolio_value_usd=50_000,
+            self.allocation,
+            self.weights,
+            portfolio_value_usd=50_000,
         )
         report = format_slippage_report(estimates)
         self.assertIn("SUI", report)
@@ -187,7 +198,9 @@ class TestEdgeCases(unittest.TestCase):
         allocation = {"SUI": 1}
         weights = {"SUI": 1.0}
         estimates = estimate_rebalance_slippage(
-            allocation, weights, portfolio_value_usd=50_000_000,
+            allocation,
+            weights,
+            portfolio_value_usd=50_000_000,
         )
         # 50M / 400M volume = 12.5% of ADV → substantial impact
         self.assertGreater(estimates["SUI"].raw_impact_pct, 0.01)

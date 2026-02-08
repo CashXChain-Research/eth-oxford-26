@@ -157,9 +157,13 @@ def fetch_pool_liquidity(pool_name: str, pool_id: str) -> PoolLiquidity:
         coin_a = fields.get("coin_a", {})
         coin_b = fields.get("coin_b", {})
         if isinstance(coin_a, dict):
-            result.coin_a_balance = int(coin_a.get("fields", {}).get("balance", coin_a.get("balance", 0)))
+            result.coin_a_balance = int(
+                coin_a.get("fields", {}).get("balance", coin_a.get("balance", 0))
+            )
         if isinstance(coin_b, dict):
-            result.coin_b_balance = int(coin_b.get("fields", {}).get("balance", coin_b.get("balance", 0)))
+            result.coin_b_balance = int(
+                coin_b.get("fields", {}).get("balance", coin_b.get("balance", 0))
+            )
 
         # Estimate TVL in USD
         # SUI pools: coin_b is typically USDC (6 decimals)
@@ -170,7 +174,7 @@ def fetch_pool_liquidity(pool_name: str, pool_id: str) -> PoolLiquidity:
         # Rough SUI price estimate from sqrt_price (Cetus uses Q64.64 format)
         if result.sqrt_price > 0:
             # price = (sqrt_price / 2^64)^2, adjusted for decimal difference
-            price_ratio = (result.sqrt_price / (2 ** 64)) ** 2
+            price_ratio = (result.sqrt_price / (2**64)) ** 2
             # Adjust for SUI(9 dec) vs USDC(6 dec): multiply by 10^(9-6) = 1000
             sui_price_usd = price_ratio * 1000 if price_ratio > 0 else 1.0
         else:

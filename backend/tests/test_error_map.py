@@ -64,7 +64,15 @@ def test_error_map_structure():
     print("ERROR MAP STRUCTURE TEST")
     print("=" * 70)
 
-    required_fields = {"code", "constant", "module", "severity", "frontend_message", "dev_message", "recovery"}
+    required_fields = {
+        "code",
+        "constant",
+        "module",
+        "severity",
+        "frontend_message",
+        "dev_message",
+        "recovery",
+    }
     issues = []
 
     for code, error in sorted(ERROR_MAP.items()):

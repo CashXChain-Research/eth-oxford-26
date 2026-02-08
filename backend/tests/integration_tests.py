@@ -24,6 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 # ===== Phase 2 Feature Validation =====
 
+
 def validate_oracle_price_sync():
     """Feature 1: Oracle price sync with slippage protection."""
     logger.info("Validating: Oracle Price Sync...")
@@ -31,16 +32,16 @@ def validate_oracle_price_sync():
     import blockchain.client as sc
 
     # Check module-level oracle configuration
-    assert hasattr(sc, 'ORACLE_CONFIG_ID'), "Missing ORACLE_CONFIG_ID"
-    assert hasattr(sc, 'PYTH_PRICE_FEED_ID'), "Missing PYTH_PRICE_FEED_ID"
-    assert hasattr(sc, 'MAX_SLIPPAGE_BPS'), "Missing MAX_SLIPPAGE_BPS"
+    assert hasattr(sc, "ORACLE_CONFIG_ID"), "Missing ORACLE_CONFIG_ID"
+    assert hasattr(sc, "PYTH_PRICE_FEED_ID"), "Missing PYTH_PRICE_FEED_ID"
+    assert hasattr(sc, "MAX_SLIPPAGE_BPS"), "Missing MAX_SLIPPAGE_BPS"
 
     # Check calculate_min_output on SuiClient
-    assert hasattr(SuiClient, 'calculate_min_output'), "Missing calculate_min_output()"
+    assert hasattr(SuiClient, "calculate_min_output"), "Missing calculate_min_output()"
     sig = inspect.signature(SuiClient.calculate_min_output)
     params = list(sig.parameters.keys())
-    assert 'amount' in params, "Missing 'amount' param"
-    assert 'expected_price' in params, "Missing 'expected_price' param"
+    assert "amount" in params, "Missing 'amount' param"
+    assert "expected_price" in params, "Missing 'expected_price' param"
 
     logger.info("  Oracle config present (ORACLE_CONFIG_ID, PYTH_PRICE_FEED_ID, MAX_SLIPPAGE_BPS)")
     logger.info("  calculate_min_output() implemented on SuiClient")
@@ -53,10 +54,10 @@ def validate_state_reconciliation():
     from blockchain.client import SuiClient
     import blockchain.client as sc
 
-    assert hasattr(SuiClient, 'get_portfolio_state'), "Missing get_portfolio_state()"
-    assert hasattr(SuiClient, 'refresh_portfolio_state'), "Missing refresh_portfolio_state()"
-    assert hasattr(SuiClient, 'get_cached_portfolio_state'), "Missing get_cached_portfolio_state()"
-    assert hasattr(sc, 'CACHE_TTL_S'), "Missing portfolio cache TTL"
+    assert hasattr(SuiClient, "get_portfolio_state"), "Missing get_portfolio_state()"
+    assert hasattr(SuiClient, "refresh_portfolio_state"), "Missing refresh_portfolio_state()"
+    assert hasattr(SuiClient, "get_cached_portfolio_state"), "Missing get_cached_portfolio_state()"
+    assert hasattr(sc, "CACHE_TTL_S"), "Missing portfolio cache TTL"
     logger.info("  Portfolio state reconciliation implemented (cache + refresh)")
     return True
 
@@ -84,7 +85,7 @@ def validate_sui_explorer_links():
     logger.info("Validating: Sui Explorer Links...")
     from blockchain.client import SuiTransactor
 
-    assert hasattr(SuiTransactor, 'get_explorer_url'), "Missing get_explorer_url()"
+    assert hasattr(SuiTransactor, "get_explorer_url"), "Missing get_explorer_url()"
 
     # Test URL generation
     url = SuiTransactor.get_explorer_url("test_digest_123", "devnet")
@@ -100,18 +101,20 @@ def validate_dry_run_mode():
     logger.info("Validating: Dry-Run Mode...")
     from blockchain.client import SuiTransactor
 
-    assert hasattr(SuiTransactor, '_dry_run'), "Missing _dry_run()"
+    assert hasattr(SuiTransactor, "_dry_run"), "Missing _dry_run()"
     logger.info("  Dry-run mode available in SuiTransactor")
     return True
 
 
 # ===== Quantum RNG Integration =====
 
+
 def run_quantum_rng(shots=100):
     """Execute quantum RNG and return random number."""
     from quantum.rng import run_quantum_rng
+
     try:
-        result = run_quantum_rng(device_arn=os.getenv('AWS_BRAKET_DEVICE', ''), shots=shots)
+        result = run_quantum_rng(device_arn=os.getenv("AWS_BRAKET_DEVICE", ""), shots=shots)
         return result
     except Exception as e:
         logger.error(f"RNG failed: {e}")
@@ -127,18 +130,18 @@ def select_winner_on_sui(random_number, task_object_id, package_id):
 def run_full_integration_test():
     """Run full integration test: RNG + winner selection."""
     logger.info("Starting full integration test...")
-    
-    task_id = os.getenv('TASK_OBJECT_ID')
-    package_id = os.getenv('PACKAGE_ID')
-    
+
+    task_id = os.getenv("TASK_OBJECT_ID")
+    package_id = os.getenv("PACKAGE_ID")
+
     if not task_id or not package_id:
         logger.warning("TASK_OBJECT_ID or PACKAGE_ID not set - skipping full integration")
         return False
-    
+
     try:
         random_num = run_quantum_rng(shots=100)
         logger.info(f"Generated random number: {random_num}")
-        
+
         select_winner_on_sui(random_num, task_id, package_id)
         logger.info("Integration test passed")
         return True
@@ -149,10 +152,11 @@ def run_full_integration_test():
 
 # ===== Main =====
 
+
 def validate_all():
     """Validate all Phase 2 features and integration."""
     logger.info("Starting comprehensive integration validation...")
-    
+
     validators = [
         validate_oracle_price_sync,
         validate_state_reconciliation,
@@ -160,7 +164,7 @@ def validate_all():
         validate_sui_explorer_links,
         validate_dry_run_mode,
     ]
-    
+
     results = []
     for validator in validators:
         try:
@@ -169,18 +173,18 @@ def validate_all():
         except Exception as e:
             logger.error(f"{validator.__name__} failed: {e}")
             results.append((validator.__name__, False))
-    
+
     passed = sum(1 for _, success in results if success)
     total = len(results)
-    
+
     logger.info(f"\nValidation Results: {passed}/{total} passed")
     for name, success in results:
         status = "PASS" if success else "FAIL"
         logger.info(f"  [{status}] {name}")
-    
+
     return passed == total
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     success = validate_all()
     sys.exit(0 if success else 1)
