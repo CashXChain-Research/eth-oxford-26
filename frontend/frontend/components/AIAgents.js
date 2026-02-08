@@ -23,8 +23,8 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
   function getLocalTimeResponse(text) {
     if (!text || typeof text !== 'string') return null;
     const t = text.toLowerCase();
-    const timePattern = /zeit|uhr|wie spät|wie spät ist es|what time|current time|time now/;
-    const datePattern = /datum|heute|welches datum|what date|date today|today/;
+    const timePattern = /what time|current time|time now|what's the time|what is the time/;
+    const datePattern = /what date|date today|today|what's the date|what is the date/;
     if (timePattern.test(t) || datePattern.test(t)) {
       const now = new Date();
       const date = now.toLocaleDateString('en-US');

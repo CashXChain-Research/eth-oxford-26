@@ -5,6 +5,7 @@ import QuantumRNG from "../components/QuantumRNG";
 import AIAgents from "../components/AIAgents";
 import MarketAgentConsole from "../components/MarketAgentConsole";
 import SuiEscrow from "../components/SuiEscrow";
+import QuantumAuditLog from "../components/QuantumAuditLog";
 
 export default function Page() {
   const [lastChainEvent, setLastChainEvent] = useState(null);
@@ -41,7 +42,6 @@ export default function Page() {
             <div style={{ padding: 12 }}>
               <QuantumRNG />
               <AIAgents bottomInputs={true} chainEvent={lastChainEvent} />
-              <MarketAgentConsole />
               <SuiEscrow onChainEvent={(ev) => setLastChainEvent(ev)} />
             </div>
           </div>
