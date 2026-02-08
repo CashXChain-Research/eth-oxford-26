@@ -46,7 +46,7 @@ export default function Page() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
-            CashXChain
+            YOUR_PROJECT_NAME
           </div>
           <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 9999, background: "#1e3a5f", color: "#93c5fd" }}>
             Quantum Portfolio
@@ -137,7 +137,7 @@ export default function Page() {
           color: "#4b5563",
         }}
       >
-        CashXChain Research — ETH Oxford Hackathon 2026
+        YOUR_PROJECT_NAME — ETH Oxford Hackathon 2026
       </footer>
     </div>
   );

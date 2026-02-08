@@ -6,7 +6,7 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
     { from: "Tom", text: "Hello! I'm Tom. How can I help?" },
   ]);
   // include the same site summary/credit so Tom has context about the demo
-  const SITE_SUMMARY = `This demo site contains three main parts: (1) Quantum RNG UI demonstrating a random number generator component; (2) AI Agents demo where Tom responds to user messages and on-chain event comments; (3) a Sui Escrow demo that simulates (or uses a connected wallet for) simple escrow flows. The demo uses a public AI endpoint for agent replies. This site is created by the CashXChain Research department (Special Thanks to Dosentelefoni).`;
+  const SITE_SUMMARY = `This demo site contains three main parts: (1) Quantum RNG UI demonstrating a random number generator component; (2) AI Agents demo where Tom responds to user messages and on-chain event comments; (3) a Sui Escrow demo that simulates (or uses a connected wallet for) simple escrow flows. The demo uses a public AI endpoint for agent replies. This site is a demo for a quantum portfolio optimizer project.`;
   const TOM_PERSONA = `You are Tom, a technically-focused assistant. Give concise, step-by-step troubleshooting and references to UI elements. Keep tone professional and use precise terminology.`;
   const TOM_EXAMPLES = `Example:\nUser: How do I fund an escrow?\nTom: Use the Sui Escrow UI to create an escrow and then click Fund; if no wallet is connected it simulates funding.`;
   // Make Tom's persona explicitly technical and distinct from Johann
@@ -49,8 +49,8 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
     if (authorshipPattern.test(userMsg.text)) {
       const isGerman = /wer/i.test(userMsg.text);
       const credit = isGerman
-        ? 'Diese Seite wurde erstellt von CashXChain Research (Special Thanks to Dosentelefoni).'
-        : 'This site was created by CashXChain Research (Special Thanks to Dosentelefoni).';
+        ? 'Diese Seite ist ein Demo fuer einen Quantum Portfolio Optimizer.'
+        : 'This site is a demo for a quantum portfolio optimizer project.';
       setMessages((m) => [...m, { from: 'Tom', text: credit }]);
       return;
     }
@@ -59,7 +59,7 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
       setLoadingTom(true);
       try {
         const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
-        const fullPrompt = `${TOM_PERSONA_EXPLICIT}\n\nSiteContext: ${SITE_SUMMARY}\n\n${TOM_EXAMPLES}\nUser: ${userMsg.text}\n\nInstruction: Answer concisely. Only reveal site authorship (CashXChain Research, Dosentelefoni) when the user explicitly asks who created or maintains the site. Examples of explicit asks (English/German): 'who made this site', 'who created this site', 'wer hat diese Seite gemacht', 'wer hat die seite erstellt'. When those explicit phrases are used, respond with the credit string exactly: 'This site was created by CashXChain Research (Special Thanks to Dosentelefoni).' Otherwise do not reveal authorship.\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata.`;
+        const fullPrompt = `${TOM_PERSONA_EXPLICIT}\n\nSiteContext: ${SITE_SUMMARY}\n\n${TOM_EXAMPLES}\nUser: ${userMsg.text}\n\nInstruction: Answer concisely. Do not reveal internal details about authorship unless explicitly asked.\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata.`;
         // Use a very low temperature for Tom to favour deterministic, technical replies
         const body = { prompt: fullPrompt, recipient: "Tom", context: SITE_SUMMARY, temperature: 0.02, max_tokens: 400 };
         // retry logic
@@ -100,8 +100,8 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
         if (typeof reply === 'string') { reply = reply.trim().replace(/^Tom:\s*/i, ''); if (reply.length > 2000) reply = reply.slice(0,2000) + '...'; }
         // If AI echoed the site summary or credit when not asked, strip it
         if (!authorshipPattern.test(userMsg.text)) {
-          if (typeof reply === 'string' && (reply.includes('This demo site contains') || reply.includes('CashXChain Research') || reply.includes('Dosentelefoni'))) {
-            reply = reply.replace(/This demo site contains[\s\S]*/i, '').replace(/CashXChain Research\s*\(?Special Thanks to Dosentelefoni\)?/i, '').trim();
+          if (typeof reply === 'string' && reply.includes('This demo site contains')) {
+            reply = reply.replace(/This demo site contains[\s\S]*/i, '').trim();
           }
           if (!reply || reply.length < 6) reply = "Could you rephrase that? I'm not sure I understood.";
         }

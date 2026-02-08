@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 
+// Replace this with your project name
+const PROJECT_NAME = "YOUR_PROJECT_NAME";
+
 // --- Helpers ----------------------------------------------------------------
 
 function pct(v) {

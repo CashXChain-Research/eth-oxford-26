@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CashXChain — Quantum Portfolio Optimizer",
+  title: "YOUR_PROJECT_NAME — Quantum Portfolio Optimizer",
   description: "AI Agents + QUBO Optimization + Sui Blockchain",
 };
 

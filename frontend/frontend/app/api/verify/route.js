@@ -15,7 +15,7 @@ export async function POST(req) {
     const body = await req.json();
     const { address, signature, nonce, ts } = body || {};
     if (!address) return NextResponse.json({ error: 'address required' }, { status: 400 });
-    const message = `Login to CashXChain demo\nAddress: ${address}\nNonce: ${nonce}\nTimestamp: ${ts}`;
+    const message = `Login to demo\nAddress: ${address}\nNonce: ${nonce}\nTimestamp: ${ts}`;
 
     let verified = false;
     try {
