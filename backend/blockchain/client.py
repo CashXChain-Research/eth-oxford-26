@@ -222,6 +222,103 @@ class SuiClient:
         event_type = f"{PACKAGE_ID}::portfolio::TradeExecuted"
         return self.query_events(event_type, limit)
 
+    # ----- Wallet Holdings Analysis -----
+
+    def get_wallet_balances(self, wallet_address: str) -> Dict[str, float]:
+        """
+        Fetch all coin balances for a wallet address.
+        
+        Returns a dict mapping coin symbol -> balance in human-readable units.
+        Example: {"SUI": 125.5, "USDC": 1000.0}
+        """
+        try:
+            result = self._call("suix_getAllBalances", [wallet_address])
+            balances = {}
+            
+            # Known coin type mappings (Sui Devnet/Testnet)
+            COIN_TYPE_MAP = {
+                "0x2::sui::SUI": "SUI",
+                "0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN": "USDC",
+                "0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN": "USDT",
+                "0xaf8cd5edc19c4512f4259f0bee101a40d41ebed738ade5874359610ef8eeced5::coin::COIN": "WETH",
+                "0x027792d9fed7f9844eb4839566001bb6f6cb4804f66aa2da6fe1ee242d896881::coin::COIN": "WBTC",
+            }
+            
+            for coin in result:
+                coin_type = coin.get("coinType", "")
+                total_balance = int(coin.get("totalBalance", "0"))
+                
+                # Map to known symbol or extract from type
+                symbol = COIN_TYPE_MAP.get(coin_type)
+                if not symbol:
+                    # Try to extract symbol from type string (last part before ::COIN)
+                    parts = coin_type.split("::")
+                    symbol = parts[-1] if parts else "UNKNOWN"
+                
+                # Convert from MIST (9 decimals for SUI, 6 for stablecoins)
+                decimals = 9 if symbol == "SUI" else 6
+                human_balance = total_balance / (10 ** decimals)
+                
+                if human_balance > 0.0001:  # Filter dust
+                    balances[symbol] = round(human_balance, 4)
+            
+            logger.info(f"Wallet {wallet_address[:10]}... balances: {balances}")
+            return balances
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch wallet balances: {e}")
+            return {}
+
+    def get_wallet_portfolio_summary(self, wallet_address: str) -> Dict[str, Any]:
+        """
+        Get a comprehensive portfolio summary for a wallet.
+        
+        Returns:
+            - holdings: Dict of symbol -> balance
+            - total_value_usd: Estimated USD value (requires price feed)
+            - allocation_pct: Current % allocation per asset
+        """
+        balances = self.get_wallet_balances(wallet_address)
+        
+        if not balances:
+            return {
+                "holdings": {},
+                "total_value_usd": 0,
+                "allocation_pct": {},
+                "is_empty": True,
+            }
+        
+        # Rough USD price estimates (in production, fetch from CoinGecko)
+        PRICE_ESTIMATES = {
+            "SUI": 1.50,
+            "USDC": 1.00,
+            "USDT": 1.00,
+            "WETH": 3200.0,
+            "WBTC": 95000.0,
+            "ETH": 3200.0,
+            "BTC": 95000.0,
+        }
+        
+        total_usd = 0.0
+        values = {}
+        for sym, bal in balances.items():
+            price = PRICE_ESTIMATES.get(sym, 0)
+            val = bal * price
+            values[sym] = val
+            total_usd += val
+        
+        allocation = {}
+        if total_usd > 0:
+            for sym, val in values.items():
+                allocation[sym] = round((val / total_usd) * 100, 1)
+        
+        return {
+            "holdings": balances,
+            "total_value_usd": round(total_usd, 2),
+            "allocation_pct": allocation,
+            "is_empty": False,
+        }
+
 
 # ---------------------------------------------------------------------------
 # Transaction builder (via Sui CLI for hackathon speed)

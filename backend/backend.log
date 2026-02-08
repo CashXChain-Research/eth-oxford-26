@@ -1,0 +1,258 @@
+nohup: Eingabe wird ignoriert
+/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1.fields import FieldInfo as FieldInfoV1
+INFO:     Started server process [139195]
+INFO:     Waiting for application startup.
+12:29:54 [api] INFO  CashXChain API starting …
+12:29:54 [api] INFO    POST /optimize     — run quantum optimization
+12:29:54 [api] INFO    GET  /portfolio    — portfolio state
+12:29:54 [api] INFO    GET  /benchmark    — classical vs quantum comparison
+12:29:54 [api] INFO    WS   /ws/logs      — live agent logs
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:3001 (Press CTRL+C to quit)
+INFO:     127.0.0.1:57936 - "WebSocket /ws/logs" [accepted]
+12:29:54 [api] INFO WebSocket client connected (1 total)
+INFO:     connection open
+INFO:     127.0.0.1:57942 - "WebSocket /ws/logs" [accepted]
+12:29:54 [api] INFO WebSocket client connected (2 total)
+INFO:     connection open
+12:30:03 [api] INFO Optimize request: risk=0.5, user=0xfa7ac3951fdca92c5200d468d31a41c11d3abbbc24a45a1b8d8e6ee7fe0a8a0b
+12:30:03 [agents.manager] INFO ============================================================
+12:30:03 [agents.manager] INFO STARTING AGENT PIPELINE
+12:30:03 [agents.manager] INFO ============================================================
+12:30:03 [agents.manager] INFO [MarketAgent] Collecting market intelligence …
+12:30:03 [httpx] INFO HTTP Request: POST https://fullnode.devnet.sui.io "HTTP/1.1 200 OK"
+12:30:03 [blockchain.client] INFO Wallet 0xfa7ac395... balances: {}
+12:30:03 [agents.manager] INFO [MarketAgent] 📦 Wallet is empty or new
+12:30:03 [core.market_data] INFO Fetching 30-day price history for ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX'] …
+12:30:04 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/sui/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:30:04 [core.market_data] INFO   SUI: 31 prices, E(r)=-728.10% ann.
+12:30:04 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:30:04 [core.market_data] INFO   ETH: 31 prices, E(r)=-461.15% ann.
+12:30:04 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:30:04 [core.market_data] INFO   BTC: 31 prices, E(r)=-301.48% ann.
+12:30:04 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:30:04 [core.market_data] INFO   SOL: 31 prices, E(r)=-536.57% ann.
+12:30:05 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/avalanche-2/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:30:05 [core.market_data] INFO   AVAX: 31 prices, E(r)=-490.81% ann.
+12:30:05 [core.market_data] INFO Covariance matrix (raw): (5, 5), cond=133.0
+12:30:05 [core.market_data] INFO Calibrated returns (Black-Litterman): SUI=2.50%, ETH=18.14%, BTC=27.50%, SOL=13.72%, AVAX=16.41%
+12:30:05 [core.market_data] INFO Covariance scaled ×0.128 (avg vol 97.7% → 35.0%)
+12:30:05 [core.market_data] INFO Covariance matrix (calibrated): (5, 5), cond=133.0
+12:30:05 [agents.manager] INFO [MarketAgent]  Using REAL market data (CoinGecko 30d)
+12:30:05 [agents.manager] INFO [MarketAgent] Fetched 5 assets. Top expected return: 27.60% (sentiment adj: +0.00%)
+12:30:05 [agents.manager] INFO [MarketAgent] Assets: ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX']
+12:30:19 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:30:19 [agents.manager] INFO [ExecutionAgent] Building QUBO model …
+12:30:19 [agents.manager] INFO [ExecutionAgent] QUBO params: target=3, λ_risk=0.50, λ_ret=1.00
+12:30:19 [agents.manager] INFO [ExecutionAgent] Quantum Solver active … running simulated annealing
+12:30:19 [quantum.optimizer] INFO Built QUBO: 5 variables, 10 quadratic terms, target_assets=3
+12:30:19 [quantum.optimizer] INFO Continuous weights: ETH=30.00%, BTC=40.00%, AVAX=30.00%
+12:30:19 [quantum.optimizer] INFO Solved in 0.015s (ExactSolver): selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2138, σ=0.3209, energy=-0.1462
+12:30:19 [agents.manager] INFO [ExecutionAgent] ⏳ Quantum RNG timing jitter: 1.12s (anti-front-running, 9/16 ones)
+12:30:20 [agents.manager] INFO [ExecutionAgent] Optimization complete in 0.015s: selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2138, σ=0.3209
+12:30:35 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:30:35 [core.slippage] INFO [ETH] Impact: 0.0034% (α=0.06, β=0.55, V/ADV=0.000001) → total slip=0.5034%, min_out=$14,924.49
+12:30:35 [core.slippage] INFO [BTC] Impact: 0.0022% (α=0.05, β=0.55, V/ADV=0.000001) → total slip=0.5022%, min_out=$19,899.56
+12:30:35 [core.slippage] INFO [AVAX] Impact: 0.0263% (α=0.1, β=0.6, V/ADV=0.000050) → total slip=0.5263%, min_out=$14,921.06
+12:30:35 [core.slippage] INFO Rebalance slippage: 3 swaps, total=$50,000, avg slip=0.5106%, any_exceeds_max=False
+12:30:35 [agents.manager] INFO [ExecutionAgent] Market Impact Analysis (Almgren-Chriss):
+  ETH     order=$    15,000  V/ADV=0.000001  impact=0.0034%  min_out=$    14,924  [OK]
+  BTC     order=$    20,000  V/ADV=0.000001  impact=0.0022%  min_out=$    19,900  [OK]
+  AVAX    order=$    15,000  V/ADV=0.000050  impact=0.0263%  min_out=$    14,921  [OK]
+12:30:35 [agents.manager] INFO [RiskAgent] Running pre-flight checks …
+12:30:35 [agents.manager] INFO [RiskAgent]  Slippage OK (avg 0.5106% per swap)
+12:30:44 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:30:44 [agents.manager] INFO [RiskAgent]   PENDING APPROVAL — Estimated trade value $1,000,000 > threshold $50,000; Portfolio risk σ=0.3209 > approval threshold 0.3
+12:30:44 [agents.manager] INFO [Pipeline] Total pipeline time: 41.018s
+INFO:     127.0.0.1:45118 - "POST /optimize HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43278 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41334 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58324 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58324 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55776 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43632 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41870 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34826 - "GET /health HTTP/1.1" 200 OK
+12:31:57 [api] INFO WebSocket client disconnected (1 remaining)
+12:31:57 [api] INFO WebSocket client disconnected (0 remaining)
+INFO:     connection closed
+INFO:     connection closed
+INFO:     127.0.0.1:37536 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37550 - "WebSocket /ws/logs" [accepted]
+12:31:58 [api] INFO WebSocket client connected (1 total)
+INFO:     connection closed
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 329, in asgi_send
+    await self.send(data)  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 618, in send
+    await self.ensure_open()
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/websockets/legacy/protocol.py", line 916, in ensure_open
+    raise self.connection_closed_exc()
+websockets.exceptions.ConnectionClosedError: no close frame received or sent
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/websockets.py", line 86, in send
+    await self._send(message)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 39, in sender
+    await send(message)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 342, in asgi_send
+    raise ClientDisconnected from exc
+uvicorn.protocols.utils.ClientDisconnected
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 244, in run_asgi
+    result = await self.app(self.scope, self.asgi_receive, self.asgi_send)  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/applications.py", line 1138, in __call__
+    await super().__call__(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/middleware/errors.py", line 151, in __call__
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/middleware/cors.py", line 79, in __call__
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/routing.py", line 364, in handle
+    await self.app(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 147, in app
+    await wrap_app_handling_exceptions(app, session)(scope, receive, send)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 144, in app
+    await func(session)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 509, in app
+    await dependant.call(**solved_result.values)
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/api.py", line 529, in websocket_logs
+    await websocket.send_json(
+    ...<5 lines>...
+    )
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/websockets.py", line 176, in send_json
+    await self.send({"type": "websocket.send", "text": text})
+  File "/home/korbi/Dokumente/eth-oxford-26/backend/.venv/lib/python3.14/site-packages/starlette/websockets.py", line 89, in send
+    raise WebSocketDisconnect(code=1006)
+starlette.websockets.WebSocketDisconnect
+INFO:     127.0.0.1:37562 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37578 - "WebSocket /ws/logs" [accepted]
+12:31:58 [api] INFO WebSocket client connected (2 total)
+INFO:     connection open
+INFO:     127.0.0.1:37562 - "GET /benchmark HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37536 - "GET /benchmark HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49374 - "WebSocket /ws/logs" [accepted]
+12:32:01 [api] INFO WebSocket client connected (3 total)
+INFO:     connection open
+INFO:     127.0.0.1:41076 - "OPTIONS /optimize HTTP/1.1" 200 OK
+12:32:10 [api] INFO Optimize request: risk=0.5, user=0x1b6d04df5ca768aa687e311518c4bcb3f7d0ad365d659bc1117d09fe426148db
+12:32:10 [agents.manager] INFO ============================================================
+12:32:10 [agents.manager] INFO STARTING AGENT PIPELINE
+12:32:10 [agents.manager] INFO ============================================================
+12:32:10 [agents.manager] INFO [MarketAgent] Collecting market intelligence …
+12:32:11 [httpx] INFO HTTP Request: POST https://fullnode.devnet.sui.io "HTTP/1.1 200 OK"
+12:32:11 [blockchain.client] INFO Wallet 0x1b6d04df... balances: {'SUI': 10.0}
+12:32:11 [agents.manager] INFO [MarketAgent] 📦 Wallet analyzed: $15 in 1 assets
+12:32:11 [core.market_data] INFO Fetching 30-day price history for ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX'] …
+12:32:12 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/sui/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:32:12 [core.market_data] INFO   SUI: 31 prices, E(r)=-728.01% ann.
+12:32:13 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:32:13 [core.market_data] INFO   ETH: 31 prices, E(r)=-460.03% ann.
+12:32:14 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:32:14 [core.market_data] INFO   BTC: 31 prices, E(r)=-301.46% ann.
+12:32:15 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:32:15 [core.market_data] INFO   SOL: 31 prices, E(r)=-536.32% ann.
+12:32:16 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/avalanche-2/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:32:16 [core.market_data] INFO   AVAX: 31 prices, E(r)=-490.72% ann.
+12:32:16 [core.market_data] INFO Covariance matrix (raw): (5, 5), cond=133.3
+12:32:16 [core.market_data] INFO Calibrated returns (Black-Litterman): SUI=2.50%, ETH=18.21%, BTC=27.50%, SOL=13.73%, AVAX=16.41%
+12:32:16 [core.market_data] INFO Covariance scaled ×0.128 (avg vol 97.7% → 35.0%)
+12:32:16 [core.market_data] INFO Covariance matrix (calibrated): (5, 5), cond=133.3
+12:32:16 [agents.manager] INFO [MarketAgent]  Using REAL market data (CoinGecko 30d)
+12:32:16 [agents.manager] INFO [MarketAgent] Fetched 5 assets. Top expected return: 28.19% (sentiment adj: +0.00%)
+12:32:16 [agents.manager] INFO [MarketAgent] Assets: ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX']
+12:32:25 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:32:25 [agents.manager] INFO [ExecutionAgent] Building QUBO model …
+12:32:25 [agents.manager] INFO [ExecutionAgent] QUBO params: target=3, λ_risk=0.50, λ_ret=1.00
+12:32:25 [agents.manager] INFO [ExecutionAgent] Quantum Solver active … running simulated annealing
+12:32:25 [quantum.optimizer] INFO Built QUBO: 5 variables, 10 quadratic terms, target_assets=3
+12:32:25 [quantum.optimizer] INFO Continuous weights: ETH=30.00%, BTC=40.00%, AVAX=30.00%
+12:32:25 [quantum.optimizer] INFO Solved in 0.019s (ExactSolver): selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2159, σ=0.3209, energy=-0.1511
+12:32:25 [agents.manager] INFO [ExecutionAgent] ⏳ Quantum RNG timing jitter: 1.00s (anti-front-running, 8/16 ones)
+12:32:26 [agents.manager] INFO [ExecutionAgent] Optimization complete in 0.019s: selected=['ETH', 'BTC', 'AVAX'], E(r)=0.2159, σ=0.3209
+12:32:45 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:32:45 [core.slippage] INFO [ETH] Impact: 0.0034% (α=0.06, β=0.55, V/ADV=0.000001) → total slip=0.5034%, min_out=$14,924.49
+12:32:45 [core.slippage] INFO [BTC] Impact: 0.0022% (α=0.05, β=0.55, V/ADV=0.000001) → total slip=0.5022%, min_out=$19,899.56
+12:32:45 [core.slippage] INFO [AVAX] Impact: 0.0263% (α=0.1, β=0.6, V/ADV=0.000050) → total slip=0.5263%, min_out=$14,921.06
+12:32:45 [core.slippage] INFO Rebalance slippage: 3 swaps, total=$50,000, avg slip=0.5106%, any_exceeds_max=False
+12:32:45 [agents.manager] INFO [ExecutionAgent] Market Impact Analysis (Almgren-Chriss):
+  ETH     order=$    15,000  V/ADV=0.000001  impact=0.0034%  min_out=$    14,924  [OK]
+  BTC     order=$    20,000  V/ADV=0.000001  impact=0.0022%  min_out=$    19,900  [OK]
+  AVAX    order=$    15,000  V/ADV=0.000050  impact=0.0263%  min_out=$    14,921  [OK]
+12:32:45 [agents.manager] INFO [RiskAgent] Running pre-flight checks …
+12:32:45 [agents.manager] INFO [RiskAgent]  Slippage OK (avg 0.5106% per swap)
+12:32:54 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:32:54 [agents.manager] INFO [RiskAgent]   PENDING APPROVAL — Estimated trade value $1,000,000 > threshold $50,000; Portfolio risk σ=0.3209 > approval threshold 0.3
+12:32:54 [agents.manager] INFO [Pipeline] Total pipeline time: 44.186s
+INFO:     127.0.0.1:41076 - "POST /optimize HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41090 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54154 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54154 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54154 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:47886 - "GET /health HTTP/1.1" 200 OK
+12:33:28 [api] INFO Optimize request: risk=0.5, user=0x1b6d04df5ca768aa687e311518c4bcb3f7d0ad365d659bc1117d09fe426148db
+12:33:28 [agents.manager] INFO ============================================================
+12:33:28 [agents.manager] INFO STARTING AGENT PIPELINE
+12:33:28 [agents.manager] INFO ============================================================
+12:33:28 [agents.manager] INFO [MarketAgent] Collecting market intelligence …
+12:33:29 [httpx] INFO HTTP Request: POST https://fullnode.devnet.sui.io "HTTP/1.1 200 OK"
+12:33:29 [blockchain.client] INFO Wallet 0x1b6d04df... balances: {'SUI': 10.0}
+12:33:29 [agents.manager] INFO [MarketAgent] 📦 Wallet analyzed: $15 in 1 assets
+12:33:29 [core.market_data] INFO Fetching 30-day price history for ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX'] …
+12:33:30 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/sui/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:33:30 [core.market_data] INFO   SUI: 31 prices, E(r)=-725.84% ann.
+12:33:30 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:33:30 [core.market_data] INFO   ETH: 31 prices, E(r)=-458.75% ann.
+12:33:30 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 200 OK"
+12:33:30 [core.market_data] INFO   BTC: 31 prices, E(r)=-299.90% ann.
+12:33:31 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 429 Too Many Requests"
+12:33:31 [core.market_data] WARNING Failed to fetch SOL: Client error '429 Too Many Requests' for url 'https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=30&interval=daily'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429, using fallback
+12:33:31 [httpx] INFO HTTP Request: GET https://api.coingecko.com/api/v3/coins/avalanche-2/market_chart?vs_currency=usd&days=30&interval=daily "HTTP/1.1 429 Too Many Requests"
+12:33:31 [core.market_data] WARNING Failed to fetch AVAX: Client error '429 Too Many Requests' for url 'https://api.coingecko.com/api/v3/coins/avalanche-2/market_chart?vs_currency=usd&days=30&interval=daily'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429, using fallback
+12:33:31 [core.market_data] INFO Covariance matrix (raw): (5, 5), cond=94.0
+12:33:31 [core.market_data] INFO Calibrated returns (Black-Litterman): SUI=2.50%, ETH=11.51%, BTC=16.87%, SOL=27.50%, AVAX=27.50%
+12:33:31 [core.market_data] INFO Covariance scaled ×0.188 (avg vol 80.7% → 35.0%)
+12:33:31 [core.market_data] INFO Covariance matrix (calibrated): (5, 5), cond=94.0
+12:33:31 [agents.manager] INFO [MarketAgent]  Using REAL market data (CoinGecko 30d)
+12:33:31 [agents.manager] INFO [MarketAgent] Fetched 5 assets. Top expected return: 28.12% (sentiment adj: +0.00%)
+12:33:31 [agents.manager] INFO [MarketAgent] Assets: ['SUI', 'ETH', 'BTC', 'SOL', 'AVAX']
+12:33:48 [httpx] INFO HTTP Request: POST https://cashxchain-ai-v1.cashxchain.workers.dev/ "HTTP/1.1 200 OK"
+12:33:48 [agents.manager] INFO [ExecutionAgent] Building QUBO model …
+12:33:48 [agents.manager] INFO [ExecutionAgent] QUBO params: target=3, λ_risk=0.50, λ_ret=1.00
+12:33:48 [agents.manager] INFO [ExecutionAgent] Quantum Solver active … running simulated annealing
+12:33:48 [quantum.optimizer] INFO Built QUBO: 5 variables, 10 quadratic terms, target_assets=3
+12:33:48 [quantum.optimizer] INFO Continuous weights: BTC=20.00%, SOL=40.00%, AVAX=40.00%
+12:33:48 [quantum.optimizer] INFO Solved in 0.001s (ExactSolver): selected=['BTC', 'SOL', 'AVAX'], E(r)=0.2579, σ=0.1284, energy=-0.6336
+12:33:48 [agents.manager] INFO [ExecutionAgent] ⏳ Quantum RNG timing jitter: 1.12s (anti-front-running, 9/16 ones)
+12:33:50 [agents.manager] INFO [ExecutionAgent] Optimization complete in 0.001s: selected=['BTC', 'SOL', 'AVAX'], E(r)=0.2579, σ=0.1284

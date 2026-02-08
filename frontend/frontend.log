@@ -1,0 +1,246 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.232.29.224:3000
+
+✓ Starting...
+✓ Ready in 1555ms
+ GET / 200 in 3.0s (compile: 2.6s, render: 389ms)
+(node:104838) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+○ Compiling /_error ...
+ GET / 200 in 240ms (compile: 21ms, render: 218ms)
+✓ Compiled in 603ms
+ GET / 200 in 502ms (compile: 251ms, render: 250ms)
+ GET / 200 in 121ms (compile: 18ms, render: 103ms)
+✓ Compiled in 367ms
+ GET / 200 in 544ms (compile: 333ms, render: 211ms)
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+ GET / 200 in 216ms (compile: 96ms, render: 120ms)
+ HEAD / 200 in 93ms (compile: 28ms, render: 65ms)
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Error: connect ECONNREFUSED 127.0.0.1:3001
+    at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:3001) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 3001
+}
+Failed to proxy http://127.0.0.1:3001/health Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Failed to proxy http://127.0.0.1:3001/health Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+ GET / 200 in 92ms (compile: 9ms, render: 83ms)
+ GET / 200 in 76ms (compile: 7ms, render: 68ms)
+ GET / 200 in 78ms (compile: 7ms, render: 71ms)
+Failed to proxy http://127.0.0.1:3001/optimize Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Failed to proxy http://127.0.0.1:3001/health Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+ GET / 200 in 86ms (compile: 6ms, render: 80ms)
+Failed to proxy http://127.0.0.1:3001/optimize Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Failed to proxy http://127.0.0.1:3001/health Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+Error: socket hang up
+    at ignore-listed frames {
+  code: 'ECONNRESET'
+}
+  Reload env: .env.local
+ GET / 200 in 188ms (compile: 120ms, render: 68ms)
+  Reload env: .env.local
+✓ Compiled in 1271ms
+ GET / 200 in 1353ms (compile: 1292ms, render: 61ms)
+ GET / 200 in 152ms (compile: 105ms, render: 47ms)
+ GET / 200 in 154ms (compile: 9ms, render: 145ms)
+ GET / 200 in 310ms (compile: 149ms, render: 161ms)
+ GET / 200 in 220ms (compile: 62ms, render: 159ms)
+ GET / 200 in 267ms (compile: 103ms, render: 164ms)
+ GET / 200 in 279ms (compile: 121ms, render: 158ms)
+ GET / 200 in 116ms (compile: 32ms, render: 84ms)

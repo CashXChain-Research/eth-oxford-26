@@ -100,6 +100,11 @@ class OptimizeResponse(BaseModel):
     slippage_estimates: Optional[dict] = None  # Per-asset market impact analysis
     reasoning: Optional[dict] = None  # Explainable AI: reasoning from each agent
     simulation_results: Optional[dict] = None  # Dry-run simulation: fees, gas, slippage breakdown
+    # Wallet Analysis
+    wallet_holdings: Optional[dict] = None  # Current token balances
+    wallet_allocation: Optional[dict] = None  # Current % allocation
+    wallet_total_usd: Optional[float] = None  # Total portfolio value
+    wallet_analyzed: bool = False  # Whether wallet was successfully read
     logs: list[str]
     total_time_s: float
 
@@ -314,6 +319,11 @@ async def optimize(req: OptimizeRequest):
         slippage_estimates=state.slippage_estimates if state.slippage_estimates else None,
         reasoning=state.reasoning if state.reasoning else None,  # XAI: explanations from agents
         simulation_results=simulation_results,  # Dry-run simulation details
+        # Wallet Analysis
+        wallet_holdings=state.wallet_holdings if state.wallet_holdings else None,
+        wallet_allocation=state.wallet_allocation if state.wallet_allocation else None,
+        wallet_total_usd=state.wallet_total_usd if state.wallet_total_usd else None,
+        wallet_analyzed=state.wallet_analyzed,
         logs=state.logs,
         total_time_s=elapsed,
     )
@@ -325,7 +335,11 @@ async def optimize(req: OptimizeRequest):
 @app.get("/portfolio")
 async def portfolio():
     """Get current portfolio state from Sui + last optimization."""
-    chain_state = get_portfolio_status()
+    try:
+        chain_state = get_portfolio_status()
+    except Exception as e:
+        logger.warning(f"Could not fetch on-chain portfolio: {e}")
+        chain_state = {"status": "unavailable", "error": str(e)}
     return {
         "on_chain": chain_state,
         "last_optimization": last_result,
@@ -569,13 +583,26 @@ async def get_benchmark():
     - 100 assets: Classical 80s vs Quantum 0.9s (89x quantum faster)
     - 250 assets: Classical 1250s vs Quantum 1.05s (1190x quantum faster!)
     """
-    import json
+    import json, math
+    
+    def sanitize_floats(obj):
+        """Replace inf/nan with JSON-safe values."""
+        if isinstance(obj, float):
+            if math.isinf(obj) or math.isnan(obj):
+                return None
+            return obj
+        if isinstance(obj, dict):
+            return {k: sanitize_floats(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [sanitize_floats(v) for v in obj]
+        return obj
     
     # Read from previous benchmark run
     try:
         with open("/tmp/benchmark_results.json", "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
+            data = json.load(f)
+            return sanitize_floats(data)
+    except (FileNotFoundError, json.JSONDecodeError):
         # Fallback: return example data
         return {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
