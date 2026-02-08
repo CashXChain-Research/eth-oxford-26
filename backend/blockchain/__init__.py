@@ -1,6 +1,3 @@
-"""
-Säule 3: Sui Blockchain Verification Layer
-Sui RPC client, PTB builder, and transaction relay for on-chain settlement.
-"""
+"""Blockchain Layer - Sui RPC client for on-chain settlement."""
 
-__all__ = ["client", "ptb_builder", "relayer"]
+__all__ = ["client"]

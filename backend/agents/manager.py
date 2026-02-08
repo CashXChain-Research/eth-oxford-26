@@ -40,6 +40,17 @@ try:
 except ImportError:
     HAS_MARKET_DATA = False
 
+try:
+    from core.slippage import (
+        SlippageEstimate,
+        estimate_rebalance_slippage,
+        format_slippage_report,
+    )
+
+    HAS_SLIPPAGE = True
+except ImportError:
+    HAS_SLIPPAGE = False
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -64,11 +75,15 @@ class PipelineState:
 
     # ExecutionAgent fills these
     optimization_result: Optional[OptimizationResult] = None
+    slippage_estimates: Dict[str, Any] = field(default_factory=dict)  # per-asset impact
 
     # RiskAgent fills these
     risk_approved: bool = False
     risk_report: str = ""
     risk_checks: Dict[str, bool] = field(default_factory=dict)
+
+    # Explainable AI (XAI): Reasoning from each agent
+    reasoning: Dict[str, str] = field(default_factory=dict)  # agent_name -> explanation text
 
     # Final
     status: Literal["pending", "approved", "rejected", "error", "pending_approval"] = "pending"
@@ -111,9 +126,12 @@ def state_to_dict(state: PipelineState) -> Dict[str, Any]:
         }
     else:
         d["optimization_result"] = None
+    # Slippage estimates (serialized)
+    d["slippage_estimates"] = state.slippage_estimates
     d["risk_approved"] = state.risk_approved
     d["risk_report"] = state.risk_report
     d["risk_checks"] = state.risk_checks
+    d["reasoning"] = state.reasoning  # XAI: explanations from each agent
     d["status"] = state.status
     d["requires_approval"] = state.requires_approval
     d["approval_reasons"] = state.approval_reasons
@@ -148,9 +166,11 @@ def dict_to_state(d: Dict[str, Any]) -> PipelineState:
             feasible=opt["feasible"],
             reason=opt.get("reason", ""),
         )
+    state.slippage_estimates = d.get("slippage_estimates", {})
     state.risk_approved = d.get("risk_approved", False)
     state.risk_report = d.get("risk_report", "")
     state.risk_checks = d.get("risk_checks", {})
+    state.reasoning = d.get("reasoning", {})  # XAI: explanations from each agent
     state.status = d.get("status", "pending")
     state.requires_approval = d.get("requires_approval", False)
     state.approval_reasons = d.get("approval_reasons", [])
@@ -202,6 +222,22 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     )
     state.log("MarketAgent", state.market_summary)
     state.log("MarketAgent", f"Assets: {[a.symbol for a in assets]}")
+    
+    # ── Explainable AI: Generate reasoning for this decision ──
+    asset_details = []
+    for a in assets:
+        vol = np.sqrt(state.cov_matrix[assets.index(a), assets.index(a)])
+        asset_details.append(f"{a.symbol} (ret={a.expected_return:.2%}, vol={vol:.2%})")
+    reasoning_text = (
+        f"Market Intelligence Report:\n"
+        f"  • Collected {len(assets)} assets with expected returns and covariance matrix\n"
+        f"  • Top return: {max(a.expected_return for a in assets):.2%}\n"
+        f"  • Sentiment adjustment: {sentiment_boost:+.2%} based on risk tolerance {state.risk_tolerance:.1%}\n"
+        f"  • Assets: {', '.join(asset_details)}\n"
+        f"  • Data source: {'Real (CoinGecko)' if use_real else 'Mock'}\n"
+        f"  • Timestamp: {state.market_timestamp:.0f}"
+    )
+    state.reasoning["MarketAgent"] = reasoning_text
 
     return state_to_dict(state)
 
@@ -265,6 +301,66 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
         f"selected={selected}, E(r)={result.expected_return:.4f}, "
         f"σ={result.expected_risk:.4f}",
     )
+
+    # ── Explainable AI: Generate reasoning for optimization ──
+    rebalance_details = []
+    for sym, alloc in result.allocation.items():
+        if alloc == 1:
+            weight = result.weights.get(sym, 0.0)
+            rebalance_details.append(f"{sym}: +{weight:.1%}")
+    
+    reasoning_text = (
+        f"Quantum QUBO Optimization Result:\n"
+        f"  • Selected Assets: {', '.join(selected)}\n"
+        f"  • Weights: {', '.join(rebalance_details)}\n"
+        f"  • Expected Return (E[r]): {result.expected_return:.2%}\n"
+        f"  • Expected Risk (σ): {result.expected_risk:.2%}\n"
+        f"  • Optimization Energy: {result.energy:.6f}\n"
+        f"  • Solver: {result.solver_used} in {result.solver_time_s:.3f}s\n"
+        f"  • Feasible: {'Yes' if result.feasible else 'No'}\n"
+        f"  • Reason: {result.reason}"
+    )
+    state.reasoning["ExecutionAgent"] = reasoning_text
+
+    # ── Market Impact / Slippage estimation (Almgren-Chriss) ──
+    # Compute min_out for each swap BEFORE submitting to chain.
+    # The Move contract will enforce: assert!(output >= min_out)
+    if HAS_SLIPPAGE and result.allocation:
+        try:
+            estimates = estimate_rebalance_slippage(
+                allocation=result.allocation,
+                weights=result.weights,
+                portfolio_value_usd=50_000,  # default; override via state in production
+            )
+            # Serialize for state transport
+            state.slippage_estimates = {
+                sym: {
+                    "order_size_usd": e.order_size_usd,
+                    "daily_volume_usd": e.daily_volume_usd,
+                    "volume_fraction": e.volume_fraction,
+                    "raw_impact_pct": e.raw_impact_pct,
+                    "total_slippage_pct": e.total_slippage_pct,
+                    "min_out_usd": e.min_out_usd,
+                    "min_out_mist": e.min_out_mist,
+                    "exceeds_max_impact": e.exceeds_max_impact,
+                    "alpha": e.alpha,
+                    "beta": e.beta,
+                }
+                for sym, e in estimates.items()
+            }
+            report = format_slippage_report(estimates)
+            state.log("ExecutionAgent", report)
+
+            any_exceeds = any(e.exceeds_max_impact for e in estimates.values())
+            if any_exceeds:
+                state.log(
+                    "ExecutionAgent",
+                    "WARNING: Some swaps exceed max impact threshold (5%)"
+                )
+        except Exception as e:
+            state.log("ExecutionAgent", f"Slippage estimation failed: {e}")
+    else:
+        state.log("ExecutionAgent", "Slippage model not available — skipping impact analysis")
 
     return state_to_dict(state)
 
@@ -342,10 +438,72 @@ def risk_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     if not checks["assets_selected"]:
         state.log("RiskAgent", " No assets selected")
 
+    # Check 7: Slippage / market impact within bounds
+    if state.slippage_estimates:
+        any_exceeds = any(
+            e.get("exceeds_max_impact", False)
+            for e in state.slippage_estimates.values()
+        )
+        checks["slippage_acceptable"] = not any_exceeds
+        if any_exceeds:
+            bad = [s for s, e in state.slippage_estimates.items() if e.get("exceeds_max_impact")]
+            state.log("RiskAgent", f" Market impact too high for: {bad}")
+        else:
+            avg_slip = np.mean([
+                e.get("total_slippage_pct", 0)
+                for e in state.slippage_estimates.values()
+            ])
+            state.log("RiskAgent", f" Slippage OK (avg {avg_slip:.4%} per swap)")
+    else:
+        checks["slippage_acceptable"] = True  # no model = pass (graceful)
+
     # Aggregate
     all_passed = all(checks.values())
     state.risk_checks = checks
     state.risk_approved = all_passed
+
+    # ── Explainable AI: Generate detailed reasoning for all checks ──
+    reasoning_lines = ["Risk Management Pre-Flight Checks:"]
+    for check_name, passed in checks.items():
+        status = "✓ PASS" if passed else "✗ FAIL"
+        if check_name == "optimizer_feasible":
+            reasoning_lines.append(f"  {status} — Optimizer feasibility: {opt.feasible}")
+        elif check_name == "position_size_ok":
+            max_w = max(opt.weights.values()) if opt.weights else 0.0
+            reasoning_lines.append(
+                f"  {status} — Max position {max_w:.2%} ≤ limit {MAX_POSITION_WEIGHT:.2%}"
+            )
+        elif check_name == "risk_within_limit":
+            reasoning_lines.append(
+                f"  {status} — Portfolio risk σ={opt.expected_risk:.4f} "
+                f"≤ cap {MAX_PORTFOLIO_RISK}"
+            )
+        elif check_name == "return_sufficient":
+            reasoning_lines.append(
+                f"  {status} — Expected return {opt.expected_return:.4f} "
+                f"≥ minimum {MIN_EXPECTED_RETURN}"
+            )
+        elif check_name == "solver_fast_enough":
+            reasoning_lines.append(
+                f"  {status} — Solver time {opt.solver_time_s:.3f}s "
+                f"≤ limit {MAX_SOLVER_TIME_S}s"
+            )
+        elif check_name == "assets_selected":
+            n_sel = sum(1 for v in opt.allocation.values() if v == 1)
+            reasoning_lines.append(f"  {status} — Assets selected: {n_sel}")
+        elif check_name == "slippage_acceptable":
+            if state.slippage_estimates:
+                avg_slip = np.mean([
+                    e.get("total_slippage_pct", 0)
+                    for e in state.slippage_estimates.values()
+                ])
+                reasoning_lines.append(
+                    f"  {status} — Avg slippage {avg_slip:.4%} acceptable"
+                )
+            else:
+                reasoning_lines.append(f"  {status} — No slippage model (graceful pass)")
+    
+    state.reasoning["RiskAgent"] = "\n".join(reasoning_lines)
 
     if all_passed:
         # ── Multi-sig approval threshold check ──

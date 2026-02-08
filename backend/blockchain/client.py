@@ -252,11 +252,14 @@ class SuiTransactor:
         expected_return: float,
         expected_risk: float,
         reason: str = "QUBO optimization",
+        slippage_estimates: Optional[Dict[str, Any]] = None,
     ) -> TxResult:
         """
-        Call the on-chain execute_trade function.
+        Call the on-chain atomic_rebalance / execute_trade function.
 
-        Maps the QUBO result to Sui move_call args.
+        Maps the QUBO result + slippage estimates to Sui move_call args.
+        When slippage_estimates are provided, uses atomic_rebalance with
+        swap_min_outputs for on-chain slippage enforcement.
         """
         if not PACKAGE_ID or not PORTFOLIO_OBJECT_ID:
             logger.error("PACKAGE_ID or PORTFOLIO_OBJECT_ID not configured")
@@ -264,8 +267,38 @@ class SuiTransactor:
 
         # Encode allocation as vectors for Move
         symbols = list(allocation.keys())
+        selected_symbols = [s for s in symbols if allocation.get(s) == 1]
         alloc_bits = [str(allocation[s]) for s in symbols]
         weight_bps = [str(int(weights.get(s, 0) * 10000)) for s in symbols]  # basis points
+
+        # ── Compute swap_min_outputs from slippage model ──
+        # These get passed to the Move contract's atomic_rebalance,
+        # which enforces: assert!(output >= min_out, ESlippageExceeded)
+        swap_amounts = []
+        swap_min_outputs = []
+        if slippage_estimates:
+            for sym in selected_symbols:
+                est = slippage_estimates.get(sym, {})
+                # Use min_out_mist from the Almgren-Chriss model
+                min_out = est.get("min_out_mist", 0)
+                order_usd = est.get("order_size_usd", 0)
+                # Convert order to MIST (placeholder: 1 SUI = $1 for demo)
+                amount_mist = int(order_usd * 1_000_000_000)
+                swap_amounts.append(str(amount_mist))
+                swap_min_outputs.append(str(min_out))
+                logger.info(
+                    f"  [{sym}] amount={amount_mist} MIST, "
+                    f"min_out={min_out} MIST "
+                    f"(slip={est.get('total_slippage_pct', 0):.4%})"
+                )
+        else:
+            # Fallback: no slippage model, use 1% default tolerance
+            for sym in selected_symbols:
+                w = weights.get(sym, 0)
+                amount = int(w * 50_000 * 1_000_000_000)  # $50K portfolio default
+                min_out = int(amount * 0.99)  # 1% tolerance
+                swap_amounts.append(str(amount))
+                swap_min_outputs.append(str(min_out))
 
         # Build the Sui CLI command
         import subprocess

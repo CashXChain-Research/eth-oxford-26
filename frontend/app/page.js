@@ -13,6 +13,18 @@ const WalletConnector = dynamic(
   () => import("../components/WalletConnector"),
   { ssr: false }
 );
+const BenchmarkComparison = dynamic(
+  () => import("../components/BenchmarkComparison"),
+  { ssr: false }
+);
+const AgentReasoning = dynamic(
+  () => import("../components/AgentReasoning"),
+  { ssr: false }
+);
+const SimulationResults = dynamic(
+  () => import("../components/SimulationResults"),
+  { ssr: false }
+);
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
@@ -122,6 +134,7 @@ function Pill({ children, variant = "default" }) {
 function QuantumVault() {
   const [account, setAccount] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [simulating, setSimulating] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -174,6 +187,26 @@ function QuantumVault() {
       setError(String(e));
       setLogs(l => [...l, { ts: Date.now(), msg: `Error: ${e}` }]);
     } finally { setLoading(false); }
+  }
+
+  // Dry-run simulation — runs pipeline but does NOT submit to chain
+  async function simulateDryRun() {
+    setSimulating(true); setError(null); setResult(null);
+    setLogs(l => [...l, { ts: Date.now(), msg: "🔬 Launching dry-run simulation..." }]);
+    try {
+      const r = await fetch(`${API_BASE}/optimize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ risk_tolerance: 0.5, user_id: account?.address || "anon", dry_run: true, use_mock: false }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      setResult(j);
+      setLogs(l => [...l, { ts: Date.now(), msg: `🔬 Simulation complete — status: ${j.status}` }]);
+    } catch (e) {
+      setError(String(e));
+      setLogs(l => [...l, { ts: Date.now(), msg: `Error: ${e}` }]);
+    } finally { setSimulating(false); }
   }
 
   const isUp = health?.status === "ok";
@@ -318,46 +351,77 @@ function QuantumVault() {
           </GlassCard>
         </div>
 
-        {/* ── CTA Button ───────────────────────────────── */}
+        {/* ── CTA Buttons ──────────────────────────────── */}
         <div style={{ marginBottom: 24 }}>
-          <button
-            onClick={optimizeAndExecute}
-            disabled={loading || !isUp || !account}
-            className="cta-button"
-            style={{
-              width: "100%", padding: "18px 24px", borderRadius: 14, border: "none",
-              background: !account ? "rgba(55,65,81,0.5)" : loading ? "rgba(30,58,95,0.8)" : "linear-gradient(135deg, #2563eb 0%, #7c3aed 50%, #06b6d4 100%)",
-              color: !account ? "#6b7280" : "#fff",
-              fontWeight: 700, fontSize: 16, letterSpacing: "-0.01em",
-              cursor: loading || !isUp || !account ? "not-allowed" : "pointer",
-              transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-              boxShadow: account && !loading ? "0 8px 32px rgba(37,99,235,0.25), 0 2px 8px rgba(124,58,237,0.15)" : "none",
-              position: "relative", overflow: "hidden",
-            }}
-          >
-            <span style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-              {!account ? (
-                <>
+          {!account ? (
+            <>
+              <button
+                disabled
+                style={{
+                  width: "100%", padding: "18px 24px", borderRadius: 14, border: "none",
+                  background: "rgba(55,65,81,0.5)", color: "#6b7280",
+                  fontWeight: 700, fontSize: 16, cursor: "not-allowed",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
                   <Icon name="lock" size={18} color="#6b7280" />
                   Connect Wallet to Start
-                </>
-              ) : loading ? (
-                <>
-                  <span className="spinner" />
-                  Running Quantum Pipeline...
-                </>
-              ) : (
-                <>
-                  <Icon name="zap" size={18} color="#fff" />
-                  Optimize &amp; Execute
-                </>
-              )}
-            </span>
-          </button>
-          {!account && (
-            <p style={{ textAlign: "center", fontSize: 12, color: "#4b5563", marginTop: 8 }}>
-              Connect your Sui wallet (Slush) to access the quantum optimizer
-            </p>
+                </span>
+              </button>
+              <p style={{ textAlign: "center", fontSize: 12, color: "#4b5563", marginTop: 8 }}>
+                Connect your Sui wallet (Slush) to access the quantum optimizer
+              </p>
+            </>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {/* Simulate (Dry Run) */}
+              <button
+                onClick={simulateDryRun}
+                disabled={simulating || loading || !isUp}
+                className="cta-button"
+                style={{
+                  width: "100%", padding: "16px 20px", borderRadius: 14,
+                  border: "1px solid rgba(245,158,11,0.25)",
+                  background: simulating ? "rgba(120,80,0,0.4)" : "rgba(245,158,11,0.08)",
+                  color: "#fcd34d",
+                  fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em",
+                  cursor: simulating || loading || !isUp ? "not-allowed" : "pointer",
+                  transition: "all 0.3s",
+                  boxShadow: "0 4px 20px rgba(245,158,11,0.08)",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                  {simulating ? (
+                    <><span className="spinner" style={{ borderTopColor: "#fcd34d" }} /> Simulating...</>
+                  ) : (
+                    <>🔬 Simulate (Dry Run)</>
+                  )}
+                </span>
+              </button>
+              {/* Execute */}
+              <button
+                onClick={optimizeAndExecute}
+                disabled={loading || simulating || !isUp}
+                className="cta-button"
+                style={{
+                  width: "100%", padding: "16px 20px", borderRadius: 14, border: "none",
+                  background: loading ? "rgba(30,58,95,0.8)" : "linear-gradient(135deg, #2563eb 0%, #7c3aed 50%, #06b6d4 100%)",
+                  color: "#fff",
+                  fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em",
+                  cursor: loading || simulating || !isUp ? "not-allowed" : "pointer",
+                  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: !loading ? "0 8px 32px rgba(37,99,235,0.25), 0 2px 8px rgba(124,58,237,0.15)" : "none",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                  {loading ? (
+                    <><span className="spinner" /> Executing...</>
+                  ) : (
+                    <><Icon name="zap" size={18} color="#fff" /> Optimize &amp; Execute</>
+                  )}
+                </span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -452,6 +516,24 @@ function QuantumVault() {
                 <span style={{ fontSize: 14 }}>&rarr;</span>
               </a>
             )}
+
+            {/* ── XAI: Agent Reasoning ──────────────────── */}
+            {result.reasoning && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <AgentReasoning reasoning={result.reasoning} />
+              </div>
+            )}
+
+            {/* ── Dry-Run Simulation Results ─────────────── */}
+            {result.simulation_results && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                <SimulationResults
+                  simulation={result.simulation_results}
+                  slippage={result.slippage_estimates}
+                  ptb={result.ptb_json}
+                />
+              </div>
+            )}
           </GlassCard>
         )}
 
@@ -503,6 +585,11 @@ function QuantumVault() {
             <div ref={logsEndRef} />
           </div>
         </GlassCard>
+
+        {/* ── Quantum vs Classical Benchmark ────────────── */}
+        <div style={{ marginTop: 24 }}>
+          <BenchmarkComparison />
+        </div>
       </main>
 
       {/* ── Footer ──────────────────────────────────────── */}
