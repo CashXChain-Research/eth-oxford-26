@@ -1,57 +1,78 @@
 "use client";
-import React, { useState } from "react";
+// WalletConnector.js — Uses @mysten/dapp-kit-react for Slush / Sui Wallet Standard
+//
+// This component uses the dApp Kit hooks (useCurrentAccount, useCurrentWallet)
+// which auto-detect any wallet implementing the Sui Wallet Standard (Slush, Sui Wallet, etc.)
+// The <ConnectButton /> from dApp Kit renders the connect/disconnect UI.
 
-export default function WalletConnector({ onConnect }) {
-  const [address, setAddress] = useState(null);
-  const [connected, setConnected] = useState(false);
+import React, { useEffect, useRef } from "react";
+import {
+  ConnectButton,
+  useCurrentAccount,
+  useCurrentWallet,
+  useCurrentNetwork,
+} from "@mysten/dapp-kit-react";
 
-  async function connect() {
-    try {
-      // Try to use a browser-injected Sui wallet
-      const maybeWallet = typeof window !== 'undefined' && (window.sui || window.suiWallet || window.suiwallet);
-      if (maybeWallet && maybeWallet.connect) {
-        await maybeWallet.connect();
-        // many Sui wallets expose getAccounts or accounts
-        const accounts = maybeWallet.accounts || (maybeWallet.getAccounts ? await maybeWallet.getAccounts() : null);
-        const addr = accounts && accounts[0] ? accounts[0].address || accounts[0] : (maybeWallet.address || null);
-        setAddress(addr);
-        setConnected(true);
-        onConnect && onConnect({ wallet: maybeWallet, address: addr });
-        return;
-      }
+/**
+ * WalletConnector
+ *
+ * Props:
+ *   onAccountChange(account | null) — called whenever the connected account changes
+ */
+export default function WalletConnector({ onAccountChange }) {
+  const account = useCurrentAccount();
+  const wallet = useCurrentWallet();
+  const network = useCurrentNetwork();
+  const prevAddr = useRef(null);
 
-      // Fallback: mock a wallet address for demo mode
-      const mock = '0x' + Math.floor(Math.random() * 1e16).toString(16);
-      setAddress(mock);
-      setConnected(true);
-      onConnect && onConnect({ wallet: null, address: mock, mock: true });
-    } catch (e) {
-      console.error('Wallet connect failed', e);
-      const mock = '0x' + Math.floor(Math.random() * 1e16).toString(16);
-      setAddress(mock);
-      setConnected(true);
-      onConnect && onConnect({ wallet: null, address: mock, mock: true });
+  // Notify parent whenever account changes
+  useEffect(() => {
+    const addr = account?.address ?? null;
+    if (addr !== prevAddr.current) {
+      prevAddr.current = addr;
+      onAccountChange?.(account ?? null);
     }
-  }
-
-  function disconnect() {
-    setConnected(false);
-    setAddress(null);
-    onConnect && onConnect(null);
-  }
+  }, [account, onAccountChange]);
 
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ fontSize: 13, color: '#222' }}>
-          Wallet: {connected ? (address || 'connected') : 'not connected'}
+    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      {/* dApp Kit connect button — auto-detects Slush & all Wallet-Standard wallets */}
+      <ConnectButton />
+
+      {/* Connection status */}
+      {account ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <div
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: "#10b981",
+              boxShadow: "0 0 6px #10b981",
+            }}
+          />
+          <span style={{ color: "#6ee7b7" }}>
+            {wallet?.name ?? "Wallet"} · {network ?? "devnet"}
+          </span>
+          <span
+            style={{
+              fontFamily: "monospace",
+              color: "#9ca3af",
+              fontSize: 12,
+              maxWidth: 180,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {account.address}
+          </span>
         </div>
-        {!connected ? (
-          <button onClick={connect} style={{ padding: '6px 10px', borderRadius: 6, background: '#0b74de', color: '#fff', border: 'none' }}>Connect</button>
-        ) : (
-          <button onClick={disconnect} style={{ padding: '6px 10px', borderRadius: 6, background: '#d93b3b', color: '#fff', border: 'none' }}>Disconnect</button>
-        )}
-      </div>
+      ) : (
+        <span style={{ fontSize: 13, color: "#6b7280" }}>
+          Connect your Slush / Sui wallet to continue
+        </span>
+      )}
     </div>
   );
 }

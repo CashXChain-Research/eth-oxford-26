@@ -4,12 +4,18 @@ import React, { useState, useRef, useEffect } from "react";
 export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
   const [messages, setMessages] = useState([
     { from: "Tom", text: "Hello! I'm Tom. How can I help?" },
-    { from: "Johann", text: "Hi, I'm Johann. Ready for the demo." },
   ]);
+  // include the same site summary/credit so Tom has context about the demo
+  const SITE_SUMMARY = `This demo site contains three main parts: (1) Quantum RNG UI demonstrating a random number generator component; (2) AI Agents demo where Tom responds to user messages and on-chain event comments; (3) a Sui Escrow demo that simulates (or uses a connected wallet for) simple escrow flows. The demo uses a public AI endpoint for agent replies. This site is a demo for a quantum portfolio optimizer project.`;
+  const TOM_PERSONA = `You are Tom, a technically-focused assistant. Give concise, step-by-step troubleshooting and references to UI elements. Keep tone professional and use precise terminology.`;
+  const TOM_EXAMPLES = `Example:\nUser: How do I fund an escrow?\nTom: Use the Sui Escrow UI to create an escrow and then click Fund; if no wallet is connected it simulates funding.`;
+  // Make Tom's persona explicitly technical and distinct from Johann
+  const TOM_PERSONA_EXPLICIT = `You are Tom, a technically-focused assistant. Provide concise, step-by-step troubleshooting and references to UI elements. Prefer technical explanations and short code examples when helpful; keep tone professional and distinct from other site agents.`;
+
+  // Do NOT auto-insert the credit message for Tom; the SITE_SUMMARY is included
+  // in prompts but Tom should reveal authorship only when explicitly asked.
   const [inputTom, setInputTom] = useState("");
-  const [inputJohann, setInputJohann] = useState("");
   const [loadingTom, setLoadingTom] = useState(false);
-  const [loadingJohann, setLoadingJohann] = useState(false);
   const messagesContainerRef = useRef(null);
   const lastChainEventRef = useRef(null);
 
@@ -17,8 +23,8 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
   function getLocalTimeResponse(text) {
     if (!text || typeof text !== 'string') return null;
     const t = text.toLowerCase();
-    const timePattern = /zeit|uhr|wie spät|wie spät ist es|what time|current time|time now/;
-    const datePattern = /datum|heute|welches datum|what date|date today|today/;
+    const timePattern = /what time|current time|time now|what's the time|what is the time/;
+    const datePattern = /what date|date today|today|what's the date|what is the date/;
     if (timePattern.test(t) || datePattern.test(t)) {
       const now = new Date();
       const date = now.toLocaleDateString('en-US');
@@ -38,25 +44,68 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
       setMessages((m) => [...m, { from: "Tom", text: local }]);
       return;
     }
+    // Local detection: immediately answer authorship questions without calling the AI
+    const authorshipPattern = /who (made|created) this site|who made this site|who created this site|wer (hat )?(die|diese) seite (gemacht|erstellt)|wer hat diese seite gemacht|wer hat die seite gemacht/i;
+    if (authorshipPattern.test(userMsg.text)) {
+      const isGerman = /wer/i.test(userMsg.text);
+      const credit = isGerman
+        ? 'Diese Seite ist ein Demo fuer einen Quantum Portfolio Optimizer.'
+        : 'This site is a demo for a quantum portfolio optimizer project.';
+      setMessages((m) => [...m, { from: 'Tom', text: credit }]);
+      return;
+    }
     // Call the provided AI endpoint for Tom; payload uses { prompt: ... }
     const replyFromAI = async () => {
       setLoadingTom(true);
       try {
         const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
-        const body = { prompt: userMsg.text, recipient: "Tom" };
-        const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error("AI_ERROR");
-        const txt = await resp.text();
-        try {
-          const data = JSON.parse(txt);
-          return (
-            (data && (data.reply || data.response || data.text)) ||
-            (data && data.result && data.result.response) ||
-            (typeof data === 'string' ? data : '')
-          );
-        } catch (e) {
-          return txt;
+        const fullPrompt = `${TOM_PERSONA_EXPLICIT}\n\nSiteContext: ${SITE_SUMMARY}\n\n${TOM_EXAMPLES}\nUser: ${userMsg.text}\n\nInstruction: Answer concisely. Do not reveal internal details about authorship unless explicitly asked.\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata.`;
+        // Use a very low temperature for Tom to favour deterministic, technical replies
+        const body = { prompt: fullPrompt, recipient: "Tom", context: SITE_SUMMARY, temperature: 0.02, max_tokens: 400 };
+        // retry logic
+        let resp = null; let txt = '';
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            if (!resp.ok) throw new Error('AI_ERROR');
+            txt = await resp.text();
+            break;
+          } catch (err) {
+            if (attempt === 2) throw err;
+            await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+          }
         }
+        let data; try { data = JSON.parse(txt); } catch (e) { data = txt; }
+
+        function extractReply(obj, raw) {
+          if (typeof obj === 'string') return obj;
+          if (!obj) return '';
+          if (Array.isArray(obj.choices) && obj.choices.length) {
+            const c = obj.choices[0];
+            if (c.message && typeof c.message.content === 'string') return c.message.content;
+            if (typeof c.text === 'string') return c.text;
+          }
+          const candidates = ['reply','response','text','output'];
+          for (const k of candidates) if (typeof obj[k] === 'string' && obj[k].trim()) return obj[k];
+          if (obj.result && typeof obj.result === 'object') {
+            if (typeof obj.result.response === 'string') return obj.result.response;
+            if (typeof obj.result.output === 'string') return obj.result.output;
+          }
+          if (obj.message && typeof obj.message === 'object' && typeof obj.message.content === 'string') return obj.message.content;
+          if (typeof raw === 'string' && raw.trim()) return raw;
+          try { return JSON.stringify(obj); } catch (e) { return ''; }
+        }
+
+        let reply = extractReply(data, txt);
+        if (typeof reply === 'string') { reply = reply.trim().replace(/^Tom:\s*/i, ''); if (reply.length > 2000) reply = reply.slice(0,2000) + '...'; }
+        // If AI echoed the site summary or credit when not asked, strip it
+        if (!authorshipPattern.test(userMsg.text)) {
+          if (typeof reply === 'string' && reply.includes('This demo site contains')) {
+            reply = reply.replace(/This demo site contains[\s\S]*/i, '').trim();
+          }
+          if (!reply || reply.length < 6) reply = "Could you rephrase that? I'm not sure I understood.";
+        }
+        return reply;
       } finally {
         setLoadingTom(false);
       }
@@ -64,116 +113,40 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
 
     replyFromAI()
       .then((r) => {
-        if (r && r.toString().trim().length > 0) setMessages((m) => [...m, { from: "Tom", text: r.toString() }] );
-        else setMessages((m) => [...m, { from: "Tom", text: "Tom: Thanks, I'll look into that." }]);
+        const replyText = (r && r.toString().trim().length > 0) ? r.toString() : "Thanks, I'll look into that.";
+        setMessages((m) => {
+          const lastTom = [...m].reverse().find((x) => x.from === 'Tom');
+          if (lastTom && lastTom.text === replyText) {
+            return [...m, { from: 'Tom', text: "I already mentioned that — do you want more details?" }];
+          }
+          return [...m, { from: 'Tom', text: replyText }];
+        });
       })
       .catch(() => {
         setTimeout(() => {
-          setMessages((m) => [...m, { from: "Tom", text: "Tom: Thanks, I'll look into that." }]);
+          setMessages((m) => [...m, { from: "Tom", text: "Thanks, I'll look into that." }]);
         }, 600);
       });
   }
 
-  function sendToJohann() {
-    if (!inputJohann.trim()) return;
-    const userMsg = { from: "You → Johann", text: inputJohann.trim() };
-    setMessages((m) => [...m, userMsg]);
-    setInputJohann("");
-    const local = getLocalTimeResponse(userMsg.text);
-    if (local) {
-      setMessages((m) => [...m, { from: "Johann", text: local }]);
-      return;
-    }
-      // Call the provided AI endpoint; payload uses { prompt: ... }
-      const replyFromAI = async () => {
-        const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
-        const body = { prompt: userMsg.text, recipient: "Johann" };
-        const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        if (!resp.ok) throw new Error("AI_ERROR");
-        const txt = await resp.text();
-        try {
-          const data = JSON.parse(txt);
-          return (
-            (data && (data.reply || data.response || data.text)) ||
-            (data && data.result && data.result.response) ||
-            (typeof data === 'string' ? data : '')
-          );
-        } catch (e) {
-          return txt;
-        }
-      };
+  // Johann has been moved to the FAQ page; this component now exposes Tom only.
 
-      replyFromAI()
-        .then((r) => {
-          if (r && r.toString().trim().length > 0) setMessages((m) => [...m, { from: "Johann", text: r.toString() }] );
-          else setMessages((m) => [...m, { from: "Johann", text: "Johann: Good idea, let's test it." }]);
-        })
-        .catch(() => {
-          setTimeout(() => {
-            setMessages((m) => [...m, { from: "Johann", text: "Johann: Good idea, let's test it." }]);
-          }, 600);
-        });
-  }
-
-  // If bottomInputs is true, we render the messages area and place inputs fixed
-  if (bottomInputs) {
-    return (
-      <div style={{ position: "relative", width: 720, height: 260, margin: "0 auto", color: "#000" }}>
-        <div style={{ padding: 12, height: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.95)", borderRadius: 8 }}>
-          <h3 style={{ textAlign: "center", marginTop: 0 }}>AI Agents Demo</h3>
-          <div ref={messagesContainerRef} style={{ minHeight: 140, maxHeight: 140, overflow: 'auto', paddingRight: 8, paddingBottom: 80 }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{ margin: "6px 0", color: "#000" }}>
-                <strong>{m.from}:</strong> <span>{m.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ position: "absolute", left: 12, right: 12, bottom: 12, display: "flex", gap: 12, zIndex: 30, background: 'transparent' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>To Tom (AI):</label>
-            <div style={{ display: "flex", gap: 8, position: 'relative', zIndex: 40, background: '#fff', padding: 8, borderRadius: 8 }}>
-              <input
-                value={inputTom}
-                onChange={(e) => setInputTom(e.target.value)}
-                placeholder="Message to Tom (AI)"
-                style={{ flex: 1, padding: 12, border: "2px solid #888", borderRadius: 8, boxShadow: "0 2px 6px rgba(0,0,0,0.12)", background: '#fff' }}
-              />
-              <button onClick={sendToTom} disabled={loadingTom} style={{ padding: "10px 14px", borderRadius: 8, background: loadingTom ? "#666" : "#111", color: "#fff", border: "none" }}>
-                {loadingTom ? 'Sending...' : 'Send'}
-              </button>
-            </div>
-            <div style={{ fontSize: 12, color: '#333', marginTop: 6 }}>Uses AI endpoint: https://cashxchain-ai-v1.cashxchain.workers.dev/</div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>To Johann (AI):</label>
-            <div style={{ display: "flex", gap: 8, position: 'relative', zIndex: 40, background: '#fff', padding: 8, borderRadius: 8 }}>
-              <input
-                value={inputJohann}
-                onChange={(e) => setInputJohann(e.target.value)}
-                placeholder="Message to Johann (AI)"
-                style={{ flex: 1, padding: 12, border: "2px solid #888", borderRadius: 8, boxShadow: "0 2px 6px rgba(0,0,0,0.12)", background: '#fff' }}
-              />
-              <button onClick={sendToJohann} disabled={loadingJohann} style={{ padding: "10px 14px", borderRadius: 8, background: loadingJohann ? "#666" : "#111", color: "#fff", border: "none" }}>
-                {loadingJohann ? 'Sending...' : 'Send'}
-              </button>
-            </div>
-            <div style={{ fontSize: 12, color: '#333', marginTop: 6 }}>Uses AI endpoint: https://cashxchain-ai-v1.cashxchain.workers.dev/</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Ensure Tom has a reminder of his name on mount
+  useEffect(() => {
+    setMessages((m) => {
+      const hasTomReminder = m.some((x) => x.from === 'Tom' && /Tom/i.test(x.text));
+      const additions = [];
+      if (!hasTomReminder) additions.push({ from: 'Tom', text: 'Reminder: My name is Tom.' });
+      return additions.length ? [...m, ...additions] : m;
+    });
+  }, []);
 
   // auto-scroll messages container to bottom when messages change
   useEffect(() => {
     try {
       const el = messagesContainerRef && messagesContainerRef.current;
       if (el) {
-        // scroll so the bottom is visible plus extra 30px beyond the chat length
         const target = Math.max(0, el.scrollHeight - el.clientHeight + 30);
-        // clamp target to scrollHeight
         el.scrollTop = Math.min(target, el.scrollHeight);
       }
     } catch (e) {
@@ -185,26 +158,53 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
   useEffect(() => {
     try {
       if (!chainEvent) return;
-      // ignore if same event already handled
       if (lastChainEventRef.current && lastChainEventRef.current.timestamp === chainEvent.timestamp) return;
       lastChainEventRef.current = chainEvent;
 
       const summary = `On-chain Event: ${chainEvent.type} — ${chainEvent.amount || ''} ${chainEvent.payer || ''} → ${chainEvent.payee || ''} (status: ${chainEvent.status})`;
       setMessages((m) => [...m, { from: 'System', text: summary }]);
 
-      // Ask Tom to comment briefly on the event
       (async () => {
         try {
-          const prompt = `You are Tom, provide a brief comment on the following on-chain event: ${summary} Please in 1-2 sentences.`;
+          const prompt = `AgentName: Tom\nPersona: ${TOM_PERSONA_EXPLICIT}\nDistinctness: Do NOT imitate or copy other site agents (e.g. Johann). Provide a brief, technical comment in 1-2 sentences. Return only the assistant text without leading 'Tom:'.\nResponseFormat: Plain text only; do not wrap the answer in JSON or extra metadata.\n\nSiteContext: ${SITE_SUMMARY}\n\nOn-chain event: ${summary}\n\nInstruction: Only reveal site authorship when explicitly asked.`;
           const url = "https://cashxchain-ai-v1.cashxchain.workers.dev/";
-          const body = { prompt, recipient: 'Tom' };
+          const body = { prompt, recipient: 'Tom', context: SITE_SUMMARY };
           const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           if (!resp.ok) throw new Error('AI_ERROR');
           const txt = await resp.text();
           let data;
           try { data = JSON.parse(txt); } catch(e) { data = txt; }
-          const reply = (data && (data.reply || data.response || data.text)) || (data && data.result && data.result.response) || (typeof data === 'string' ? data : '');
-          setMessages((m) => [...m, { from: 'Tom', text: reply || 'Tom: Event recorded.' }]);
+          function extractReply(obj, raw) {
+            if (typeof obj === 'string') return obj;
+            if (!obj) return '';
+            if (Array.isArray(obj.choices) && obj.choices.length) {
+              const c = obj.choices[0];
+              if (c.message && typeof c.message.content === 'string') return c.message.content;
+              if (typeof c.text === 'string') return c.text;
+            }
+            const candidates = ['reply','response','text','output'];
+            for (const k of candidates) if (typeof obj[k] === 'string' && obj[k].trim()) return obj[k];
+            if (obj.result && typeof obj.result === 'object') {
+              if (typeof obj.result.response === 'string') return obj.result.response;
+              if (typeof obj.result.output === 'string') return obj.result.output;
+            }
+            if (obj.message && typeof obj.message === 'object' && typeof obj.message.content === 'string') return obj.message.content;
+            if (typeof raw === 'string' && raw.trim()) return raw;
+            try { return JSON.stringify(obj); } catch (e) { return ''; }
+          }
+          let reply = extractReply(data, txt);
+          if (typeof reply === 'string') {
+            reply = reply.trim().replace(/^Tom:\s*/i, '');
+            if (reply.length > 500) reply = reply.slice(0,500) + '...';
+          }
+          setMessages((m) => {
+            const replyText = reply || 'Tom: Event recorded.';
+            const lastTom = [...m].reverse().find((x) => x.from === 'Tom');
+            if (lastTom && lastTom.text === replyText) {
+              return [...m, { from: 'Tom', text: 'I already noted that event.' }];
+            }
+            return [...m, { from: 'Tom', text: replyText }];
+          });
         } catch (e) {
           setMessages((m) => [...m, { from: 'Tom', text: 'Tom: I received the event and noted it.' }]);
         }
@@ -214,41 +214,58 @@ export default function AIAgents({ bottomInputs = false, chainEvent = null }) {
     }
   }, [chainEvent]);
 
+  if (bottomInputs) {
+    return (
+      <div style={{ position: "relative", width: "100%", minHeight: 260, color: "#e5e7eb" }}>
+        <div style={{ padding: 12, minHeight: 260, boxSizing: "border-box", background: "#111827", borderRadius: 10, border: "1px solid #1f2937" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>AI Agent — Tom</div>
+          <div ref={messagesContainerRef} style={{ minHeight: 100, maxHeight: 140, overflow: 'auto', paddingRight: 8, paddingBottom: 60 }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{ margin: "6px 0" }}>
+                <strong style={{ color: m.from === 'Tom' ? '#60a5fa' : '#d1d5db' }}>{m.from}:</strong>{' '}
+                <span style={{ color: "#d1d5db" }}>{m.text}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <input
+              value={inputTom}
+              onChange={(e) => setInputTom(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToTom(); } }}
+              placeholder="Message to Tom..."
+              style={{ flex: 1, padding: 10, border: "1px solid #374151", borderRadius: 6, background: '#1f2937', color: '#e5e7eb' }}
+            />
+            <button onClick={sendToTom} disabled={loadingTom} style={{ padding: "10px 16px", borderRadius: 6, background: loadingTom ? "#374151" : "#2563eb", color: "#fff", border: "none", fontWeight: 600 }}>
+              {loadingTom ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ maxWidth: 720, margin: "40px auto", padding: 20, border: "1px solid #eee", borderRadius: 8, color: "#000" }}>
-      <h2 style={{ textAlign: "center" }}>AI Agents Demo</h2>
-      <div ref={messagesContainerRef} style={{ minHeight: 140, maxHeight: 220, padding: 10, background: "#fafafa", borderRadius: 6, color: "#000", overflow: 'auto' }}>
+    <div style={{ padding: 16, background: "#111827", borderRadius: 10, border: "1px solid #1f2937", color: "#e5e7eb" }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>AI Agent — Tom</div>
+      <div ref={messagesContainerRef} style={{ minHeight: 140, maxHeight: 220, padding: 10, background: "#0f172a", borderRadius: 6, overflow: 'auto' }}>
         {messages.map((m, i) => (
-          <div key={i} style={{ margin: "6px 0", color: "#000" }}>
-            <strong>{m.from}:</strong> <span>{m.text}</span>
+          <div key={i} style={{ margin: "6px 0" }}>
+            <strong style={{ color: m.from === 'Tom' ? '#60a5fa' : m.from === 'System' ? '#fbbf24' : '#d1d5db' }}>{m.from}:</strong>{' '}
+            <span style={{ color: "#d1d5db" }}>{m.text}</span>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>To Tom:</label>
-          <input
-            value={inputTom}
-            onChange={(e) => setInputTom(e.target.value)}
-            placeholder="Message to Tom"
-            style={{ width: "100%", padding: 12, border: "1px solid #ccc", borderRadius: 6, fontSize: 15, background: "#fff", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.03)" }}
-          />
-          <button onClick={sendToTom} style={{ marginTop: 8, padding: "10px 14px", borderRadius: 6, background: "#111", color: "#fff", border: "none" }}>
-            Send to Tom
-          </button>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>To Johann:</label>
-          <input
-            value={inputJohann}
-            onChange={(e) => setInputJohann(e.target.value)}
-            placeholder="Message to Johann"
-            style={{ width: "100%", padding: 12, border: "1px solid #ccc", borderRadius: 6, fontSize: 15, background: "#fff", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.03)" }}
-          />
-          <button onClick={sendToJohann} style={{ marginTop: 8, padding: "10px 14px", borderRadius: 6, background: "#111", color: "#fff", border: "none" }}>
-            Send to Johann
-          </button>
-        </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <input
+          value={inputTom}
+          onChange={(e) => setInputTom(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendToTom(); } }}
+          placeholder="Message to Tom..."
+          style={{ flex: 1, padding: 10, border: "1px solid #374151", borderRadius: 6, fontSize: 14, background: "#1f2937", color: "#e5e7eb" }}
+        />
+        <button onClick={sendToTom} disabled={loadingTom} style={{ padding: "10px 16px", borderRadius: 6, background: loadingTom ? "#374151" : "#2563eb", color: "#fff", border: "none", fontWeight: 600 }}>
+          {loadingTom ? 'Sending...' : 'Send'}
+        </button>
       </div>
     </div>
   );

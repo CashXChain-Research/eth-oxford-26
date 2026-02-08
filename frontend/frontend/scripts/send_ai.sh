@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# send_ai.sh — Einfaches Beispiel: POST an AI-Endpoint
-# Nutzung: ./scripts/send_ai.sh
-# Erwartet: curl installiert
+# send_ai.sh — Simple example: POST to an AI endpoint
+# Usage: ./scripts/send_ai.sh
+# Requires: curl
 
 set -euo pipefail
 
 URL="https://cashxchain-ai-v1.cashxchain.workers.dev/"
-PROMPT=${1:-"Hallo"}
+PROMPT=${1:-"Hello"}
 
 PAYLOAD=$(printf '{"prompt":"%s"}' "$PROMPT")
 
@@ -20,5 +20,5 @@ curl -sS -X POST "$URL" \
 echo "--- raw response ---"
 cat /tmp/ai_response.txt || true
 
-# Hinweis:
-# - Wenn dein Endpoint Auth benötigt, füge: -H "Authorization: Bearer <TOKEN>"
+# Notes:
+# - If your endpoint requires auth, add: -H "Authorization: Bearer <TOKEN>"
