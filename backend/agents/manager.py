@@ -34,6 +34,13 @@ from quantum.optimizer import (
 )
 from quantum.rng import run_quantum_rng_local
 
+# Wallet analysis
+try:
+    from blockchain.client import SuiClient
+    HAS_SUI_CLIENT = True
+except ImportError:
+    HAS_SUI_CLIENT = False
+
 AI_ENDPOINT = "https://cashxchain-ai-v1.cashxchain.workers.dev/"
 
 def call_ai_agent(context: str, instruction: str, fallback: str) -> str:
@@ -104,6 +111,12 @@ class PipelineState:
     risk_tolerance: float = 0.5  # 0 = conservative, 1 = aggressive
     use_mock: bool = False  # force mock market data
 
+    # Wallet Analysis (NEW)
+    wallet_holdings: Dict[str, float] = field(default_factory=dict)  # symbol -> balance
+    wallet_allocation: Dict[str, float] = field(default_factory=dict)  # symbol -> % allocation
+    wallet_total_usd: float = 0.0
+    wallet_analyzed: bool = False
+
     # MarketAgent fills these
     assets: List[Asset] = field(default_factory=list)
     cov_matrix: Optional[np.ndarray] = None
@@ -145,6 +158,12 @@ def state_to_dict(state: PipelineState) -> Dict[str, Any]:
     d["user_id"] = state.user_id
     d["risk_tolerance"] = state.risk_tolerance
     d["use_mock"] = state.use_mock
+    # Wallet analysis
+    d["wallet_holdings"] = state.wallet_holdings
+    d["wallet_allocation"] = state.wallet_allocation
+    d["wallet_total_usd"] = state.wallet_total_usd
+    d["wallet_analyzed"] = state.wallet_analyzed
+    # Assets
     d["assets"] = [(a.symbol, a.expected_return, a.max_weight) for a in state.assets]
     d["cov_matrix"] = state.cov_matrix.tolist() if state.cov_matrix is not None else None
     d["market_summary"] = state.market_summary
@@ -182,6 +201,12 @@ def dict_to_state(d: Dict[str, Any]) -> PipelineState:
     state.user_id = d.get("user_id", "")
     state.risk_tolerance = d.get("risk_tolerance", 0.5)
     state.use_mock = d.get("use_mock", False)
+    # Wallet analysis
+    state.wallet_holdings = d.get("wallet_holdings", {})
+    state.wallet_allocation = d.get("wallet_allocation", {})
+    state.wallet_total_usd = d.get("wallet_total_usd", 0.0)
+    state.wallet_analyzed = d.get("wallet_analyzed", False)
+    # Assets
     if d.get("assets"):
         state.assets = [
             Asset(symbol=a[0], expected_return=a[1], max_weight=a[2]) for a in d["assets"]
@@ -223,12 +248,38 @@ def dict_to_state(d: Dict[str, Any]) -> PipelineState:
 def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
     Gather market data, compute expected returns & covariance.
-    For the hackathon we use mock data; in production this would call
-    CoinGecko / Pyth / Chainlink oracles.
+    Also analyzes the user's wallet holdings for personalized recommendations.
     """
     state = dict_to_state(state_dict)
     state.log("MarketAgent", "Collecting market intelligence …")
 
+    # ── STEP 1: Analyze Wallet Holdings ──
+    wallet_summary = ""
+    if HAS_SUI_CLIENT and state.user_id and state.user_id.startswith("0x"):
+        try:
+            sui_client = SuiClient()
+            portfolio = sui_client.get_wallet_portfolio_summary(state.user_id)
+            if not portfolio.get("is_empty"):
+                state.wallet_holdings = portfolio.get("holdings", {})
+                state.wallet_allocation = portfolio.get("allocation_pct", {})
+                state.wallet_total_usd = portfolio.get("total_value_usd", 0)
+                state.wallet_analyzed = True
+                state.log("MarketAgent", f"📦 Wallet analyzed: ${state.wallet_total_usd:.0f} in {len(state.wallet_holdings)} assets")
+                
+                # Build wallet summary for AI
+                wallet_parts = [f"{sym}: {pct}%" for sym, pct in state.wallet_allocation.items()]
+                wallet_summary = f"Current Holdings: {', '.join(wallet_parts)} (Total: ${state.wallet_total_usd:.0f})"
+            else:
+                state.log("MarketAgent", "📦 Wallet is empty or new")
+                wallet_summary = "Current Holdings: Empty wallet (new user)"
+                state.wallet_analyzed = True
+        except Exception as e:
+            state.log("MarketAgent", f"⚠️ Wallet analysis failed: {e}")
+            wallet_summary = "Current Holdings: Unable to read (using general recommendations)"
+    else:
+        wallet_summary = "Current Holdings: Demo mode (no real wallet connected)"
+
+    # ── STEP 2: Fetch Market Data ──
     # Try real CoinGecko data first, fallback to mock
     use_real = False
     if HAS_MARKET_DATA and not state.use_mock:
@@ -266,29 +317,39 @@ def market_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
         vol = np.sqrt(state.cov_matrix[assets.index(a), assets.index(a)])
         asset_details.append(f"{a.symbol} (ret={a.expected_return:.2%}, vol={vol:.2%})")
     
-    # Raw data context for the AI
+    # Raw data context for the AI (including wallet holdings)
     context_str = (
         f"Wallet: {state.user_id}\n"
+        f"{wallet_summary}\n"
         f"Risk Tolerance: {state.risk_tolerance:.0%} (0%=safe, 100%=aggressive)\n"
-        f"Assets: {'; '.join(asset_details)}\n"
+        f"Market Assets: {'; '.join(asset_details)}\n"
         f"Data: {'Live CoinGecko 30d' if use_real else 'Mock'}"
     )
 
     # Fallback template
     fallback_text = (
         f"📊 Market Scan for {state.user_id}:\n"
+        f"  • {wallet_summary}\n"
         f"  • {len(assets)} assets analyzed (CoinGecko 30d)\n"
         f"  • Best opportunity: {max(assets, key=lambda a: a.expected_return).symbol} "
         f"at {max(a.expected_return for a in assets):.1%} expected return\n"
-        f"  • Risk profile: {state.risk_tolerance:.0%} → sentiment {sentiment_boost:+.2%}\n"
-        f"  • Assets: {', '.join(asset_details)}"
+        f"  • Risk profile: {state.risk_tolerance:.0%} → sentiment {sentiment_boost:+.2%}"
     )
 
-    ai_instruction = (
-        f"For wallet {state.user_id} with {state.risk_tolerance:.0%} risk tolerance: "
-        f"Which of these assets look best to invest in and why? "
-        f"Rank them by attractiveness. Be specific with the numbers."
-    )
+    # Personalized instruction based on wallet status
+    if state.wallet_analyzed and state.wallet_holdings:
+        ai_instruction = (
+            f"For wallet {state.user_id} (current holdings: {wallet_summary}): "
+            f"Based on their EXISTING portfolio and {state.risk_tolerance:.0%} risk tolerance, "
+            f"what should they ADD or REBALANCE? Consider diversification. "
+            f"Be specific with numbers."
+        )
+    else:
+        ai_instruction = (
+            f"For wallet {state.user_id} with {state.risk_tolerance:.0%} risk tolerance: "
+            f"Which of these assets look best to invest in and why? "
+            f"Rank them by attractiveness. Be specific with the numbers."
+        )
     state.reasoning["MarketAgent"] = call_ai_agent(context_str, ai_instruction, fallback_text)
 
     return state_to_dict(state)
@@ -356,32 +417,57 @@ def execution_agent(state_dict: Dict[str, Any]) -> Dict[str, Any]:
 
     # ── Explainable AI: Generate reasoning for optimization ──
     rebalance_details = []
+    selected_metrics = []
+    
+    # Enrich context with per-asset stats key for the AI to reason about WHY
     for sym, alloc in result.allocation.items():
         if alloc == 1:
             weight = result.weights.get(sym, 0.0)
-            rebalance_details.append(f"{sym}: +{weight:.1%}")
-    
+            rebalance_details.append(f"{sym}: {weight:.1%}")
+            # Find asset object to get return info
+            asset_obj = next((a for a in state.assets if a.symbol == sym), None)
+            if asset_obj:
+               idx = [a.symbol for a in state.assets].index(sym)
+               vol = np.sqrt(state.cov_matrix[idx, idx])
+               selected_metrics.append(f"{sym} (Return {asset_obj.expected_return:.1%}, Risk {vol:.1%})")
+
+    # Build wallet context for personalization
+    wallet_context = ""
+    if state.wallet_analyzed and state.wallet_holdings:
+        holdings_str = ", ".join([f"{s}: {b}" for s, b in state.wallet_holdings.items()])
+        alloc_str = ", ".join([f"{s}: {p}%" for s, p in state.wallet_allocation.items()])
+        wallet_context = f"Current Holdings: {holdings_str}\nCurrent Allocation: {alloc_str}\n"
+
     context_str = (
         f"Wallet: {state.user_id}\n"
-        f"Invest: {', '.join(rebalance_details)}\n"
-        f"Expected Return: {result.expected_return:.1%} | Risk: {result.expected_risk:.1%}\n"
-        f"Solver: {result.solver_used} ({result.solver_time_s:.3f}s)"
+        f"{wallet_context}"
+        f"Recommended Allocation: {', '.join(rebalance_details)}\n"
+        f"Asset Stats: {'; '.join(selected_metrics)}\n"
+        f"Portfolio Total: Expected Return {result.expected_return:.1%} | Risk {result.expected_risk:.1%}\n"
+        f"Solver: {result.solver_used}"
     )
 
     fallback_text = (
         f"💰 Investment Plan for {state.user_id}:\n"
         f"  • BUY: {', '.join(rebalance_details)}\n"
-        f"  • Expected Return: {result.expected_return:.1%} annually\n"
-        f"  • Portfolio Risk: {result.expected_risk:.1%}\n"
+        f"  • Rationale: Maximizing return ({result.expected_return:.1%}) while managing risk ({result.expected_risk:.1%})\n"
         f"  • Optimized by Quantum QUBO Solver in {result.solver_time_s:.3f}s"
     )
 
-    ai_instruction = (
-        f"Wallet {state.user_id} should invest: {', '.join(rebalance_details)}. "
-        f"Expected return {result.expected_return:.1%}, risk {result.expected_risk:.1%}. "
-        f"Explain in 3-4 bullet points WHY this allocation is optimal. "
-        f"Mention the specific % for each asset and the return/risk trade-off."
-    )
+    # Personalized instruction
+    if state.wallet_analyzed and state.wallet_holdings:
+        ai_instruction = (
+            f"For wallet {state.user_id} with existing holdings ({wallet_context.strip()}): "
+            f"Explain how this new allocation ({', '.join(rebalance_details)}) improves their portfolio. "
+            f"Use the Asset Stats to explain WHY. Consider diversification from their current position."
+        )
+    else:
+        ai_instruction = (
+            f"For wallet {state.user_id}: Justify the portfolio allocation ({', '.join(rebalance_details)}). "
+            f"Use the provided Asset Stats (Return & Risk) to explain why specific assets were chosen (e.g. 'BTC chosen for high return', 'others for diversification'). "
+            f"Refer to the trade-off outcomes (Return {result.expected_return:.1%}, Risk {result.expected_risk:.1%}). "
+            f"No hallucinated 'historical trends'."
+        )
 
     state.reasoning["ExecutionAgent"] = call_ai_agent(context_str, ai_instruction, fallback_text)
 

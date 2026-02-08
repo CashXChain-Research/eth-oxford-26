@@ -239,3 +239,8 @@ Error: socket hang up
  GET / 200 in 1353ms (compile: 1292ms, render: 61ms)
  GET / 200 in 152ms (compile: 105ms, render: 47ms)
  GET / 200 in 154ms (compile: 9ms, render: 145ms)
+ GET / 200 in 310ms (compile: 149ms, render: 161ms)
+ GET / 200 in 220ms (compile: 62ms, render: 159ms)
+ GET / 200 in 267ms (compile: 103ms, render: 164ms)
+ GET / 200 in 279ms (compile: 121ms, render: 158ms)
+ GET / 200 in 116ms (compile: 32ms, render: 84ms)

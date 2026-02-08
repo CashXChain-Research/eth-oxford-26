@@ -100,6 +100,11 @@ class OptimizeResponse(BaseModel):
     slippage_estimates: Optional[dict] = None  # Per-asset market impact analysis
     reasoning: Optional[dict] = None  # Explainable AI: reasoning from each agent
     simulation_results: Optional[dict] = None  # Dry-run simulation: fees, gas, slippage breakdown
+    # Wallet Analysis
+    wallet_holdings: Optional[dict] = None  # Current token balances
+    wallet_allocation: Optional[dict] = None  # Current % allocation
+    wallet_total_usd: Optional[float] = None  # Total portfolio value
+    wallet_analyzed: bool = False  # Whether wallet was successfully read
     logs: list[str]
     total_time_s: float
 
@@ -314,6 +319,11 @@ async def optimize(req: OptimizeRequest):
         slippage_estimates=state.slippage_estimates if state.slippage_estimates else None,
         reasoning=state.reasoning if state.reasoning else None,  # XAI: explanations from agents
         simulation_results=simulation_results,  # Dry-run simulation details
+        # Wallet Analysis
+        wallet_holdings=state.wallet_holdings if state.wallet_holdings else None,
+        wallet_allocation=state.wallet_allocation if state.wallet_allocation else None,
+        wallet_total_usd=state.wallet_total_usd if state.wallet_total_usd else None,
+        wallet_analyzed=state.wallet_analyzed,
         logs=state.logs,
         total_time_s=elapsed,
     )
