@@ -1,136 +1,75 @@
-# Agent Architecture — CashXChain Quantum Portfolio Optimizer
+# Agent Architecture
 
-## Overview
+Multi-agent orchestration via LangGraph for portfolio optimization.
 
-Three AI agents orchestrated via **LangGraph** optimize a crypto portfolio
-using **quantum computing (QUBO)** and enforce risk constraints before
-executing on the **Sui blockchain**.
+## Pipeline
 
+Market Agent -> Execution Agent -> Risk Agent -> Approve/Reject
+
+### Market Agent
+Gathers and processes market data.
+- Fetches price feeds (CoinGecko, Pyth)
+- Calculates portfolio metrics
+- Analyzes sentiment and trends
+
+### Execution Agent
+Runs QUBO optimization on market data.
+- Formulates portfolio optimization as QUBO
+- Selects solver (D-Wave simulated annealing or scipy)
+- Returns optimized weights
+
+### Risk Agent
+Pre-flight safety validation before execution.
+- Checks spending caps and volume limits
+- Verifies slippage protection
+- Validates position concentration
+- Approves or rejects trade
+
+## Implementation
+
+File: agents/manager.py
+
+Uses LangGraph StateGraph for workflow:
+- State: Shared context across agents
+- Edges: Directed flow between agents
+- Tools: Agent actions (market fetching, optimization, validation)
+
+Example:
+```python
+from agents.manager import run_pipeline
+
+state = run_pipeline(
+    market_data=prices,
+    config=portfolio_config,
+    dry_run=False
+)
+print(state.optimization_result.weights)
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        LangGraph Pipeline                       │
-│                                                                 │
-│  ┌──────────────┐   ┌──────────────────┐   ┌────────────────┐  │
-│  │ Market Agent  │──▶│ Execution Agent   │──▶│  Risk Agent    │  │
-│  │              │   │ (Quantum Solver)  │   │ (Pre-flight)   │  │
-│  └──────────────┘   └──────────────────┘   └───────┬────────┘  │
-│                                                     │           │
-│                                            ┌────────▼────────┐  │
-│                                            │  Approved?       │  │
-│                                            │  ✅ → Sui TX    │  │
-│                                            │  ❌ → Reject    │  │
-│                                            └─────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-              ┌───────────────────────────────┐
-              │     Sui Blockchain (Devnet)    │
-              │  ┌─────────────────────────┐  │
-              │  │ PortfolioState (shared)  │  │
-              │  │ ExecutionGuardrails      │  │
-              │  │ AuditLog (events)        │  │
-              │  └─────────────────────────┘  │
-              └───────────────────────────────┘
-```
-
-## Agent Details
-
-### 1. Market Intelligence Agent
-- **Input:** User risk tolerance (0-1)
-- **Output:** 5 assets with expected returns + covariance matrix
-- **Current:** Mock data (SUI, ETH, BTC, SOL, AVAX)
-- **Production:** CoinGecko API, Pyth Network oracles, on-chain TVL data
-
-### 2. Execution Agent (Quantum Solver)
-- **Input:** Assets + covariance from Market Agent
-- **Output:** Binary allocation vector + portfolio metrics
-- **Method:** QUBO (Quadratic Unconstrained Binary Optimization)
-- **Formula:** $E(x) = x^T Q x + c^T x$
-  - $Q = \lambda_{risk} \cdot \Sigma$ (covariance → risk penalty)
-  - $c = -\lambda_{return} \cdot \mu + \lambda_{budget} \cdot \text{penalty}$
-- **Solver:** D-Wave SimulatedAnnealing (hackathon) / QPU (production)
-- **Constraint:** Must solve in < 5 seconds
-
-### 3. Risk Management Agent (Pre-Flight)
-- **Input:** Optimization result from Execution Agent
-- **Output:** Approve / Reject with detailed check report
-- **Checks:**
-  | Check | Threshold | Description |
-  |-------|-----------|-------------|
-  | `position_size_ok` | ≤ 40% | No single asset > 40% weight |
-  | `risk_within_limit` | σ ≤ 0.35 | Portfolio annualized risk cap |
-  | `return_sufficient` | ≥ 5% | Minimum expected return |
-  | `solver_fast_enough` | ≤ 5s | Solver latency budget |
-  | `optimizer_feasible` | — | QUBO feasibility flag |
-  | `assets_selected` | ≥ 1 | At least one asset chosen |
 
 ## Data Flow
 
-```
-User clicks "Optimize" on Frontend
-        │
-        ▼
-┌─ MarketAgent ─────────────────────────────┐
-│  Fetch prices, compute μ (returns),       │
-│  Σ (covariance), adjust for sentiment     │
-└───────────────────────┬───────────────────┘
-                        │
-                        ▼
-┌─ ExecutionAgent ──────────────────────────┐
-│  Build QUBO: E(x) = xᵀQx + cᵀx          │
-│  Solve via SimulatedAnnealing / D-Wave    │
-│  Return: allocation, weights, E(r), σ     │
-└───────────────────────┬───────────────────┘
-                        │
-                        ▼
-┌─ RiskAgent ───────────────────────────────┐
-│  Check 6 guardrails                       │
-│  Match on-chain ExecutionGuardrails       │
-│  Output: APPROVED or REJECTED + reason    │
-└───────────────────────┬───────────────────┘
-                        │
-                ┌───────┴───────┐
-                │   Approved?   │
-                └───┬───────┬───┘
-                YES │       │ NO
-                    ▼       ▼
-            Sign & Submit   Return error
-            to Sui          to Frontend
-                │
-                ▼
-        On-chain: PortfolioState updated
-        On-chain: AuditLog event emitted
-        Frontend: shows tx digest + new state
-```
+1. User requests optimization
+2. Market Agent fetches prices and calculates metrics
+3. Execution Agent runs QUBO solver on metrics
+4. Risk Agent validates optimization result
+5. If approved: Relayer submits to blockchain
+6. If rejected: Return error message
 
-## File Map
+## Safety
 
-| File | Purpose |
-|------|---------|
-| `qubo_optimizer.py` | QUBO formulation, solver, test universe |
-| `agents.py` | LangGraph pipeline (Market → Execution → Risk) |
-| `sui_client.py` | Sui JSON-RPC client + transaction builder |
-| `optimize_and_send.py` | End-to-end demo script |
-| `test_qubo.py` | Unit tests + benchmarks |
-| `relayer.py` | Event listener (legacy, for agent registration) |
-| `quantum_rng.py` | AWS Braket quantum RNG (separate feature) |
+All agents enforce guardrails:
+- Spending caps: Maximum spend per trade
+- Volume limits: Maximum volume per asset
+- Concentration limits: Maximum weight per asset
+- Slippage protection: Min output validation
 
-## Quick Start
+Dry-run mode available for simulation without blockchain settlement.
 
-```bash
-cd backend
-pip install -r requirements.txt
-cp .env.example .env  # fill in contract addresses
+## Integration
 
-# Run the optimizer standalone
-python qubo_optimizer.py --target 3
+Agents are called by api.py endpoint /optimize:
+- Receives market symbols and config
+- Calls run_pipeline()
+- Returns optimized weights or error
 
-# Run the full agent pipeline
-python agents.py --risk 0.5
-
-# Run end-to-end with Sui (dry-run)
-python optimize_and_send.py --dry-run
-
-# Run tests
-python test_qubo.py -v
-```
+Related: blockchain.relayer submits approved trades to Sui.

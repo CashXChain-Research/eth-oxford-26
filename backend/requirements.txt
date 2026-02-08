@@ -2,6 +2,7 @@
 python-dotenv
 httpx
 numpy
+scipy  # For benchmark optimizers (Markowitz, HRP)
 
 # D-Wave Ocean SDK (QUBO solver + simulated annealing)
 dimod
@@ -15,13 +16,14 @@ langchain-core>=0.3.0
 # amazon-braket-sdk
 # boto3
 
-# Sui integration
-# pysui  # uncomment when using pysui instead of CLI
+# Sui integration (used by sui_client.py + ptb_builder.py)
+pysui
 
-# API server
+# API server (relayer_server.py + event_provider.py)
 fastapi
 uvicorn[standard]
 websockets
+pydantic
 
 # Testing
 pytest

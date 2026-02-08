@@ -27,7 +27,7 @@ export default function QuantumRNG() {
       <button
         onClick={generateRandomNumber}
         aria-label="Generate random number"
-        className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full bg-black text-white hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition"
+        className="inline-flex items-center justify-center gap-2 h-12 px-6 rounded-full bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition"
       >
         <span className="font-medium">Generate</span>
         <span className="text-sm opacity-80">RNG</span>
@@ -36,7 +36,7 @@ export default function QuantumRNG() {
       {randomNumber !== null && (
         <div style={{ fontSize: "24px", marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
           <span style={{ fontWeight: 600, marginRight: 8 }}>Your random number:</span>
-          <span style={{ display: "inline-block", minWidth: 120, textAlign: "center", background: "rgba(255,0,0,0.06)", color: "red", padding: "6px 12px", borderRadius: 6, fontFamily: "monospace", fontSize: 20 }}>
+          <span style={{ display: "inline-block", minWidth: 120, textAlign: "center", background: "rgba(220,38,38,0.12)", color: "#b91c1c", padding: "6px 12px", borderRadius: 6, fontFamily: "monospace", fontSize: 20 }}>
             {randomNumber}
           </span>
           <button
@@ -45,9 +45,9 @@ export default function QuantumRNG() {
             style={{
               padding: "8px 12px",
               borderRadius: 6,
-              border: "1px solid rgba(220,38,38,0.3)",
-              background: copied ? "rgba(220,38,38,0.1)" : "transparent",
-              color: "red",
+              border: "1px solid rgba(220,38,38,0.6)",
+              background: copied ? "rgba(220,38,38,0.15)" : "transparent",
+              color: "#b91c1c",
               cursor: "pointer",
               fontWeight: 600,
             }}

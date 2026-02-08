@@ -1,0 +1,21 @@
+// dapp-kit.ts — Sui dApp Kit instance (devnet)
+import { createDAppKit } from '@mysten/dapp-kit-react';
+import { SuiGrpcClient } from '@mysten/sui/grpc';
+
+const GRPC_URLS = {
+  devnet: 'https://fullnode.devnet.sui.io:443',
+  testnet: 'https://fullnode.testnet.sui.io:443',
+} as const;
+
+export const dAppKit = createDAppKit({
+  networks: ['devnet'],
+  createClient: (network) =>
+    new SuiGrpcClient({ network, baseUrl: GRPC_URLS[network as keyof typeof GRPC_URLS] }),
+});
+
+// Register types for hook type inference
+declare module '@mysten/dapp-kit-react' {
+  interface Register {
+    dAppKit: typeof dAppKit;
+  }
+}

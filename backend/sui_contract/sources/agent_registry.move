@@ -4,6 +4,10 @@ use sui::object::{Self, UID, ID};
 use sui::transfer;
 use sui::tx_context::{Self, TxContext};
 use sui::event;
+use sui::display;
+use sui::package;
+use std::string;
+use std::vector;
 
 // ── Errors ──────────────────────────────────────────────────
 const ENotAdmin: u64 = 0;
@@ -37,9 +41,35 @@ struct AgentRevoked has copy, drop {
     agent: address,
 }
 
+/// One-time witness for Display
+struct AGENT_REGISTRY has drop {}
+
 // ── Init ────────────────────────────────────────────────────
 
-fun init(ctx: &mut TxContext) {
+fun init(otw: AGENT_REGISTRY, ctx: &mut TxContext) {
+    let publisher = package::claim(otw, ctx);
+
+    // Display<AgentCap> — rich display in wallets & explorers
+    let agent_display = display::new_with_fields<AgentCap>(
+        &publisher,
+        vector[
+            string::utf8(b"name"),
+            string::utf8(b"description"),
+            string::utf8(b"project_name"),
+            string::utf8(b"image_url"),
+        ],
+        vector[
+            string::utf8(b"AI Agent: {name}"),
+            string::utf8(b"Quantum Vault Agent Capability bound to portfolio {portfolio_id}"),
+            string::utf8(b"CashXChain Quantum Vault"),
+            string::utf8(b"https://cashxchain.io/assets/agent_cap.svg"),
+        ],
+        ctx,
+    );
+    display::update_version(&mut agent_display);
+    transfer::public_transfer(agent_display, tx_context::sender(ctx));
+    transfer::public_transfer(publisher, tx_context::sender(ctx));
+
     transfer::transfer(
         AdminCap { id: object::new(ctx) },
         tx_context::sender(ctx),
@@ -97,4 +127,4 @@ public fun portfolio_id(cap: &AgentCap): ID { cap.portfolio_id }
 // ── Test-only ───────────────────────────────────────────────
 
 #[test_only]
-public fun init_for_testing(ctx: &mut TxContext) { init(ctx) }
+public fun init_for_testing(ctx: &mut TxContext) { init(AGENT_REGISTRY {}, ctx) }
