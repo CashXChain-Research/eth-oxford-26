@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { API_BASE, WS_BASE } from "../utils/config";
 
 const DAppKitClientProvider = dynamic(
   () => import("./DAppKitClientProvider").then((m) => m.DAppKitClientProvider),
@@ -25,9 +26,6 @@ const SimulationResults = dynamic(
   () => import("../components/SimulationResults"),
   { ssr: false }
 );
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
 
 // ── Portfolio universe ────────────────────────────────────────
 const PORTFOLIO = [

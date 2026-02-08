@@ -12,6 +12,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { API_BASE } from "../utils/config";
 
 export default function BenchmarkComparison() {
   const [data, setData] = useState(null);
@@ -20,7 +21,7 @@ export default function BenchmarkComparison() {
   useEffect(() => {
     const fetchBenchmark = async () => {
       try {
-        const res = await fetch("http://localhost:3001/benchmark");
+        const res = await fetch(`${API_BASE}/benchmark`);
         const json = await res.json();
         setData(json);
       } catch (err) {
