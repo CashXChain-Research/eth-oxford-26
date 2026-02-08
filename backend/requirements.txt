@@ -1,29 +1,20 @@
-# Core
+# Runtime dependencies (lean — no dev tools, no test-only packages)
 python-dotenv
 httpx
 numpy
-scipy  # For benchmark optimizers (Markowitz, HRP)
 
-# D-Wave Ocean SDK (QUBO solver + simulated annealing)
+# D-Wave QUBO solver (simulated annealing — runs locally, no QPU needed)
 dimod
 dwave-neal
 
-# LangGraph (agent orchestration)
+# GARCH volatility forecasting (Financial Engineering)
+arch
+
+# Agent orchestration
 langgraph>=0.2.0
 langchain-core>=0.3.0
 
-# AWS Braket (quantum RNG — optional, only for real QPU)
-# amazon-braket-sdk
-# boto3
-
-# Sui integration (used by sui_client.py + ptb_builder.py)
-pysui
-
-# API server (relayer_server.py + event_provider.py)
+# API server
 fastapi
 uvicorn[standard]
-websockets
 pydantic
-
-# Testing
-pytest

@@ -1,6 +1,27 @@
 #!/usr/bin/env python3
 """
-Quantum RNG using AWS Braket.
+Quantum RNG — Regulatory-Grade Entropy Source (AWS Braket)
+
+PURPOSE: Compliance & Auditability, not "better randomness"
+
+In regulated finance, institutions must prove that critical non-deterministic
+values (nonces, trade-ordering seeds, audit timestamps) are not manipulated.
+Classical PRNGs are algorithmically predictable given seed knowledge.
+Quantum RNG provides physically verifiable randomness: each bit emerges from
+a Hadamard-gate measurement — a fundamentally irreversible quantum event.
+
+This gives auditors a hardware-anchored entropy certificate:
+  1. The randomness source is identified (AWS Braket device ARN)
+  2. Each measurement is logged with shot count and result distribution
+  3. Results can be independently verified against quantum-mechanical bounds
+
+USE CASES:
+  - Fair trade-ordering: Prevent front-running by seeding execution order
+    with quantum-random nonces
+  - Audit timestamps: On-chain events tagged with quantum-derived entropy
+    prove no timestamp manipulation
+  - Regulatory compliance: MiFID II / SEC requirements for demonstrating
+    non-deterministic order-matching fairness
 
 Default: uses the SV1 simulator for development. To use real hardware, set
 the `--device` argument or the `AWS_BRAKET_DEVICE` environment variable to

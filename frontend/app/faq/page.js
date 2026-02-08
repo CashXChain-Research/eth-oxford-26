@@ -25,7 +25,7 @@ export default function FAQPage() {
         <section style={{ marginBottom: 18 }}>
           <h3>Site Overview</h3>
           <ul>
-            <li><strong>Quantum RNG:</strong> Demonstrates a quantum-random-number generator UI component.</li>
+            <li><strong>Quantum RNG:</strong> Regulatory-grade entropy module. Generates compliance certificates using quantum Hadamard-gate measurements — provably fair nonces for trade ordering (MiFID II / SEC).</li>
             <li><strong>AI Agents (Tom):</strong> Chat interface with the Tom AI agent. Tom handles user messages and on-chain event comments.</li>
             <li><strong>Sui Escrow:</strong> Demonstrates a simple escrow UI that emits simulated on-chain events the AI can comment on.</li>
           </ul>
